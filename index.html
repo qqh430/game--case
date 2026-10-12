@@ -201,40 +201,41 @@ function resolveRel(dir,u){
   return u.startsWith('/')?normPath(VFS.root+'/'+u):normPath(dir+'/'+u);
 }
 const entry=(dir,u)=>vfsGet(resolveRel(dir,u));
-function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
+async function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;try{await ensure(t)}catch(e){return null}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
 
 async function zipToVFS(blob){
   const zip=await JSZip.loadAsync(blob);
   const map=new Map(),lower=new Map(),suffix=new Map(),jobs=[];
   zip.forEach((path,f)=>{
     if(f.dir||/(^|\/)__MACOSX\//.test(path)||/(^|\/)\.DS_Store$/.test(path)||/(^|\/)\._/.test(path))return;
-    jobs.push(f.async('blob').then(async b=>{path=path.normalize('NFC');
+    {path=path.normalize('NFC');
       const type=MIME[ext(path)]||'application/octet-stream';
-      const bb=new Blob([b],{type});
-      const e={path,blob:bb,type,_u:null,get url(){return this._u||(this._u=URL.createObjectURL(this.blob))}};
-      if(/^(js|mjs)$/.test(ext(path)))e.text=await bb.text();
+      /* 파일은 필요할 때만 압축을 푼다 (수만 개 파일을 한꺼번에 풀면 아이폰 메모리가 부족해진다) */
+      const e={path,file:f,blob:null,type,_u:null,get url(){return this.blob?(this._u||(this._u=URL.createObjectURL(this.blob))):null}};
       map.set(path,e);lower.set(path.toLowerCase(),e);
       const segs=path.toLowerCase().split('/');
       for(let i=0;i<segs.length-1;i++){const t=segs.slice(i).join('/');const prev=suffix.get(t);suffix.set(t,prev&&prev!==e?AMBIG:e)}
-    }));
+    }
   });
-  await Promise.all(jobs);
   const htmls=[...map.keys()].filter(p=>/\.html?$/i.test(p)).sort((a,b)=>{
     const da=a.split('/').length,db=b.split('/').length;if(da!==db)return da-db;
     const ia=/(^|\/)index\.html?$/i.test(a)?0:1,ib=/(^|\/)index\.html?$/i.test(b)?0:1;return ia-ib||a.localeCompare(b);
   });
   return {map,lower,suffix,entry:htmls[0]||null,root:htmls[0]?dirOf(htmls[0]):''};
 }
-function freeVFS(v){if(!v)return;for(const e of v.map.values()){if(e._u)URL.revokeObjectURL(e._u);e.dataUrl=null}}
+function freeVFS(v){if(!v)return;for(const e of v.map.values()){if(e._u)URL.revokeObjectURL(e._u);e._u=null;e.blob=null;e._p=null;e.dataUrl=null;e.text=null}}
+function ensure(e){if(e.blob)return Promise.resolve(e);if(!e._p)e._p=e.file.async('blob').then(b=>{e.blob=new Blob([b],{type:e.type});return e},err=>{e._p=null;throw err});return e._p}
+window.__gcEnsure=ensure;
+async function textOf(e){await ensure(e);if(e.text==null)e.text=await e.blob.text();return e.text}
 
 async function replaceAsync(str,re,fn){const parts=[];let last=0;for(const m of str.matchAll(re)){parts.push(str.slice(last,m.index),fn(...m));last=m.index+m[0].length}parts.push(str.slice(last));return (await Promise.all(parts)).join('')}
 async function rewriteCss(css,dir,depth=0){
   if(depth<6)css=await replaceAsync(css,/@import\s+(?:url\(\s*)?(['"]?)([^'")\s;]+)\1\s*\)?([^;]*);/gi,async(m,q,u,media)=>{
     const t=entry(dir,u);if(!t)return m;
-    const inner=await rewriteCss(await t.blob.text(),dirOf(t.path),depth+1);
+    const inner=await rewriteCss(await textOf(t),dirOf(t.path),depth+1);
     return media.trim()?`@media ${media.trim()}{${inner}}`:inner;
   });
-  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,(m,q,u)=>{const r=rewriteUrl(dir,u);return r?`url("${r}")`:m});
+  return replaceAsync(css,/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,async(m,q,u)=>{const r=await rewriteUrl(dir,u);return r?`url("${r}")`:m});
 }
 
 /* runs inside the game frame: routes the game's own file requests to the zip contents */
@@ -248,13 +249,16 @@ function gcShim(){
     var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(e){}
     var e=P.__gcGet(p);L(e?'hit':'miss',p);return e}catch(e){return null}}
   function withHash(e,v){var s=String(v),h=s.indexOf('#');return e.url+(h>=0?s.slice(h):'')}
+  function ready(e){return P.__gcEnsure(e)}
+  function when(e,fn,onFail){if(e.blob){fn();return}ready(e).then(fn,onFail||function(){})}
   function inlineScript(el,e){
-    el.text=e.text!=null?e.text:'';
-    var n=0;(function fire(){if(el.isConnected){setTimeout(function(){el.dispatchEvent(new Event('load'))},0)}else if(n++<500){setTimeout(fire,10)}})();
+    function go(t){el.text=t;var n=0;(function fire(){if(el.isConnected){setTimeout(function(){el.dispatchEvent(new Event('load'))},0)}else if(n++<500){setTimeout(fire,10)}})()}
+    if(e.text!=null){go(e.text);return}
+    ready(e).then(function(){return e.blob.text()}).then(function(t){e.text=t;go(t)},function(){el.dispatchEvent(new Event('error'))});
   }
   var of=window.fetch;
   if(of)window.fetch=function(input){var u=(typeof input==='string'||input instanceof URL)?String(input):(input&&input.url);var e=u&&res(u);
-    if(e)return Promise.resolve(new Response(e.blob,{status:200,statusText:'OK',headers:{'Content-Type':e.type}}));return of.apply(this,arguments)};
+    if(e)return ready(e).then(function(){return new Response(e.blob,{status:200,statusText:'OK',headers:{'Content-Type':e.type}})});return of.apply(this,arguments)};
   var XP=XMLHttpRequest.prototype,XO=XP.open,XS=XP.send,XH=XP.setRequestHeader,XG=XP.getResponseHeader,XA=XP.getAllResponseHeaders;
   function def(o,k,v){Object.defineProperty(o,k,{value:v,configurable:true,writable:true})}
   XP.open=function(m,u){this.__gc=res(u);if(this.__gc){this.__gcU=String(u);def(this,'readyState',1);return}return XO.apply(this,arguments)};
@@ -262,8 +266,9 @@ function gcShim(){
   XP.getResponseHeader=function(n){if(this.__gc)return /content-type/i.test(n)?this.__gc.type:null;return XG.apply(this,arguments)};
   XP.getAllResponseHeaders=function(){if(this.__gc)return 'content-type: '+this.__gc.type+'\r\n';return XA.apply(this,arguments)};
   XP.send=function(){var x=this,e=x.__gc;if(!e)return XS.apply(this,arguments);var rt=x.responseType||'';
-    var p=rt==='arraybuffer'?e.blob.arrayBuffer():rt==='blob'?Promise.resolve(e.blob):rt==='json'?e.blob.text().then(function(t){try{return JSON.parse(t)}catch(_){return null}}):
-      rt==='document'?e.blob.text().then(function(t){return new DOMParser().parseFromString(t,/xml/.test(e.type)?'application/xml':'text/html')}):e.blob.text();
+    var p=ready(e).then(function(){return rt==='arraybuffer'?e.blob.arrayBuffer():rt==='blob'?Promise.resolve(e.blob):rt==='json'?e.blob.text().then(function(t){try{return JSON.parse(t)}catch(_){return null}}):
+      rt==='document'?e.blob.text().then(function(t){return new DOMParser().parseFromString(t,/xml/.test(e.type)?'application/xml':'text/html')}):e.blob.text()});
+    p.catch(function(){def(x,'readyState',4);def(x,'status',0);x.dispatchEvent(new ProgressEvent('error'));x.dispatchEvent(new ProgressEvent('loadend'))});
     p.then(function(v){var size=e.blob.size;def(x,'status',200);def(x,'statusText','OK');def(x,'response',v);def(x,'responseURL',x.__gcU);
       if(rt===''||rt==='text')def(x,'responseText',v);if(rt==='document')def(x,'responseXML',v);
       def(x,'readyState',4);x.dispatchEvent(new Event('readystatechange'));
@@ -274,19 +279,20 @@ function gcShim(){
   function patch(proto,prop,isScript){if(!proto)return;var d=Object.getOwnPropertyDescriptor(proto,prop);if(!d||!d.set)return;
     Object.defineProperty(proto,prop,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){var e=v!=null&&res(v);
       if(e&&isScript){inlineScript(this,e);return}
-      if(!isScript&&v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);this.addEventListener('error',function(){L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
-      d.set.call(this,e?withHash(e,v):v)}})}
+      var el=this;el.__gcE=e||null;
+      if(e){when(e,function(){if(el.__gcE===e)d.set.call(el,withHash(e,v))});return}
+      d.set.call(el,v)}})}
   /* 이미지: crossOrigin이 붙은 효과 이미지는 Safari에서 blob 주소가 막힐 수 있어 data 주소로 넘긴다 */
   (function(){var IP=window.HTMLImageElement&&HTMLImageElement.prototype;if(!IP)return;
     var sd=Object.getOwnPropertyDescriptor(IP,'src'),cd=Object.getOwnPropertyDescriptor(IP,'crossOrigin');if(!sd||!sd.set)return;
-    function toData(img,e){if(e.dataUrl){sd.set.call(img,e.dataUrl);return}var fr=new FileReader();
+    function toData(img,e){if(e.dataUrl){sd.set.call(img,e.dataUrl);return}if(!e.blob){when(e,function(){if(img.__gcE===e)toData(img,e)});return}var fr=new FileReader();
       fr.onload=function(){e.dataUrl=fr.result;if(img.__gcE===e)sd.set.call(img,fr.result)};
       fr.onerror=function(){if(img.__gcE===e)sd.set.call(img,e.url)};fr.readAsDataURL(e.blob)}
     Object.defineProperty(IP,'src',{configurable:true,enumerable:sd.enumerable,get:sd.get,set:function(v){
       var e=v!=null&&res(v),img=this;img.__gcE=e||null;
-      if(v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);img.addEventListener('error',function(){L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
-      if(e&&img.getAttribute('crossorigin')!==null){toData(img,e);return}
-      sd.set.call(img,e?withHash(e,v):v)}});
+      if(v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);img.addEventListener('error',function(){if(img.__gcE===(e||null))L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
+      if(e){when(e,function(){if(img.__gcE!==e)return;if(img.getAttribute('crossorigin')!==null)toData(img,e);else sd.set.call(img,withHash(e,v))},function(){if(img.__gcE===e)L('err',String(v)+'  (압축 해제 실패)')});return}
+      sd.set.call(img,v)}});
     if(cd&&cd.set)Object.defineProperty(IP,'crossOrigin',{configurable:true,enumerable:cd.enumerable,get:cd.get,set:function(v){
       cd.set.call(this,v);if(v!=null&&this.__gcE)toData(this,this.__gcE)}});
   })();
@@ -301,7 +307,8 @@ function gcShim(){
     if(ln==='crossorigin'&&this instanceof HTMLImageElement){this.crossOrigin=v===''?'anonymous':v;return}
     if((ln==='src'||ln==='href'||ln==='xlink:href'||ln==='poster')&&v!=null&&this.tagName.toLowerCase()!=='a'){var e=res(v);
       if(e){if(ln==='src'&&this.tagName.toLowerCase()==='script'){inlineScript(this,e);return}
-        if(ln==='src'&&this instanceof HTMLImageElement){this.src=v;return}return SA.call(this,n,withHash(e,v))}}
+        if(ln==='src'&&this instanceof HTMLImageElement){this.src=v;return}
+        var el=this;when(e,function(){SA.call(el,n,withHash(e,v))});return}}
     return SA.call(this,n,v)};
   var OA=window.Audio;if(OA){var NA=function(u){var a=new OA();if(u!==undefined)a.src=u;return a};NA.prototype=OA.prototype;window.Audio=NA}
   document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest('a[href]');if(!a)return;
@@ -316,14 +323,14 @@ function gcShim(){
 
 async function buildDoc(path){
   const e=vfsGet(path),dir=dirOf(e.path);
-  const doc=new DOMParser().parseFromString(await e.blob.text(),'text/html');
+  const doc=new DOMParser().parseFromString(await textOf(e),'text/html');
   const hadDoctype=!!doc.doctype;
   doc.querySelectorAll('base').forEach(b=>b.remove());
   for(const l of [...doc.querySelectorAll('link[href]')]){
     if(!/(^|\s)stylesheet(\s|$)/i.test(l.getAttribute('rel')||''))continue;
     const t=entry(dir,l.getAttribute('href'));if(!t)continue;
     const s=doc.createElement('style');if(l.getAttribute('media'))s.setAttribute('media',l.getAttribute('media'));
-    s.textContent=await rewriteCss(await t.blob.text(),dirOf(t.path));s.dataset.gc='1';l.replaceWith(s);
+    s.textContent=await rewriteCss(await textOf(t),dirOf(t.path));s.dataset.gc='1';l.replaceWith(s);
   }
   for(const s of doc.querySelectorAll('style:not([data-gc])'))s.textContent=await rewriteCss(s.textContent,dir);
   for(const el of doc.querySelectorAll('[style]'))el.setAttribute('style',await rewriteCss(el.getAttribute('style'),dir));
@@ -332,14 +339,14 @@ async function buildDoc(path){
     const t=entry(dir,sc.getAttribute('src'));if(!t)continue;
     const n=doc.createElement('script');
     for(const a of sc.attributes)if(!['src','defer','async','integrity','crossorigin'].includes(a.name))n.setAttribute(a.name,a.value);
-    n.textContent=(t.text!=null?t.text:await t.blob.text()).replace(/<\/script/gi,'<\\/script');
+    n.textContent=(await textOf(t)).replace(/<\/script/gi,'<\\/script');
     if(sc.hasAttribute('defer')||(sc.getAttribute('type')||'').toLowerCase()==='module'){sc.remove();deferred.push(n)}else sc.replaceWith(n);
   }
   const pairs=[['img','src'],['source','src'],['audio','src'],['video','src'],['video','poster'],['track','src'],['input','src'],['embed','src'],['object','data'],
     ['link','href'],['image','href'],['image','xlink:href'],['use','href'],['use','xlink:href'],['feImage','href']];
-  for(const [tag,attr] of pairs)for(const el of doc.getElementsByTagName(tag)){const v=el.getAttribute(attr);if(v==null)continue;const r=rewriteUrl(dir,v);if(r){el.setAttribute(attr,r);el.removeAttribute('crossorigin')}}
-  for(const el of doc.querySelectorAll('[srcset]'))el.setAttribute('srcset',el.getAttribute('srcset').split(',').map(part=>{
-    const bits=part.trim().split(/\s+/);const r=rewriteUrl(dir,bits[0]);if(r)bits[0]=r;return bits.join(' ')}).join(', '));
+  for(const [tag,attr] of pairs)for(const el of [...doc.getElementsByTagName(tag)]){const v=el.getAttribute(attr);if(v==null)continue;const r=await rewriteUrl(dir,v);if(r){el.setAttribute(attr,r);el.removeAttribute('crossorigin')}}
+  for(const el of doc.querySelectorAll('[srcset]'))el.setAttribute('srcset',(await Promise.all(el.getAttribute('srcset').split(',').map(async part=>{
+    const bits=part.trim().split(/\s+/);const r=await rewriteUrl(dir,bits[0]);if(r)bits[0]=r;return bits.join(' ')}))).join(', '));
   deferred.forEach(n=>doc.body.appendChild(n));
   const head=doc.head;
   const base=doc.createElement('base');base.setAttribute('href','https://gc.local/'+(dir?dir.split('/').map(encodeURIComponent).join('/')+'/':''));
@@ -417,7 +424,7 @@ async function addGame(blob,fileName){
   try{v=await zipToVFS(blob)}catch(e){busy(false);toast('zip 파일을 열 수 없어요. 압축이 깨지지 않았는지 확인해 주세요.');return}
   if(!v.entry){freeVFS(v);busy(false);toast('zip 안에 .html 파일이 없어요. 게임 폴더를 통째로 압축해 주세요.');return}
   let name=fileName.replace(/\.zip$/i,'');
-  try{const d=new DOMParser().parseFromString(await v.map.get(v.entry).blob.text(),'text/html');const t=(d.title||'').trim();if(t)name=t}catch(e){}
+  try{const d=new DOMParser().parseFromString(await textOf(v.map.get(v.entry)),'text/html');const t=(d.title||'').trim();if(t)name=t}catch(e){}
   freeVFS(v);
   const g={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:name.slice(0,60),file:fileName,size:blob.size,added:Date.now(),blob};
   const saved=await store.put(g);games.push(g);freshId=g.id;busy(false);render();
@@ -441,6 +448,7 @@ function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
   const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,miss:new Map(),err:new Map()};
   const out=[];
+  out.push('앱 버전: 5 (필요할 때 압축 해제)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
