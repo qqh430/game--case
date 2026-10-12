@@ -92,6 +92,14 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
 #player .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--surface);color:var(--ink);border-bottom:1px solid var(--line)}
 #player .bar button{font:inherit;font-weight:700;font-size:.88rem;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer;flex:none}
 #player .bar button:focus-visible{outline:2px solid var(--accent)}
+#player{--pad:10px}
+#diag{position:absolute;left:0;right:0;bottom:0;top:calc(52px + env(safe-area-inset-top,0px));z-index:2;background:var(--surface);color:var(--ink);display:flex;flex-direction:column;gap:10px;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px))}
+#diag .diag-head{display:flex;flex-direction:column;gap:2px}
+#diag .diag-head span{font-size:.82rem;color:var(--muted)}
+#diagText{flex:1;width:100%;min-height:0;resize:none;font-family:var(--f-mono);font-size:12px;line-height:1.5;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+#diag .diag-actions{display:flex;gap:8px}
+#diag .diag-actions button{flex:1;font:inherit;font-weight:700;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:9px;cursor:pointer}
+#diag .diag-actions button:first-child{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 #ptitle{flex:1;min-width:0;text-align:center;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #frame{flex:1;width:100%;border:0;background:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-reduced-motion:reduce){.shell,.cart.fresh .shell{transition:none;animation:none}}
@@ -147,7 +155,13 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
   <div class="bar">
     <button id="back" type="button">← 보관함</button>
     <span id="ptitle"></span>
+    <button id="diagBtn" type="button">진단</button>
     <button id="reload" type="button">다시 시작</button>
+  </div>
+  <div id="diag" hidden>
+    <div class="diag-head"><strong>이미지 진단</strong><span>게임을 조금 진행한 뒤 ‘새로 보기’를 누르세요</span></div>
+    <textarea id="diagText" readonly spellcheck="false" aria-label="진단 내용"></textarea>
+    <div class="diag-actions"><button id="diagCopy" type="button">복사</button><button id="diagRefresh" type="button">새로 보기</button><button id="diagClose" type="button">닫기</button></div>
   </div>
   <iframe id="frame" title="게임 화면" allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
 </div>
@@ -226,8 +240,13 @@ async function rewriteCss(css,dir,depth=0){
 /* runs inside the game frame: routes the game's own file requests to the zip contents */
 function gcShim(){
   var P=window.parent;if(!P||!P.__gcGet)return;
-  function res(u){try{if(u==null)return null;var x=new URL(String(u),document.baseURI);if(x.hostname!=='gc.local')return null;
-    var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(e){}return P.__gcGet(p)}catch(e){return null}}
+  var L=P.__gcLog||function(){};
+  function res(u){try{if(u==null)return null;var s=String(u);
+    if(/^about:/i.test(s))s=s.replace(/^about:(srcdoc|blank)?\/*/i,'');
+    if(/^(blob|data):/i.test(s))return null;
+    var x=new URL(s,document.baseURI);if(x.hostname!=='gc.local')return null;
+    var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(e){}
+    var e=P.__gcGet(p);L(e?'hit':'miss',p);return e}catch(e){return null}}
   function withHash(e,v){var s=String(v),h=s.indexOf('#');return e.url+(h>=0?s.slice(h):'')}
   function inlineScript(el,e){
     el.text=e.text!=null?e.text:'';
@@ -253,17 +272,20 @@ function gcShim(){
       x.dispatchEvent(new ProgressEvent('loadend',{lengthComputable:true,loaded:size,total:size}))});
   };
   function patch(proto,prop,isScript){if(!proto)return;var d=Object.getOwnPropertyDescriptor(proto,prop);if(!d||!d.set)return;
-    Object.defineProperty(proto,prop,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){var e=typeof v==='string'&&res(v);
-      if(e&&isScript){inlineScript(this,e);return}d.set.call(this,e?withHash(e,v):v)}})}
+    Object.defineProperty(proto,prop,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){var e=v!=null&&res(v);
+      if(e&&isScript){inlineScript(this,e);return}
+      if(!isScript&&v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);this.addEventListener('error',function(){L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
+      d.set.call(this,e?withHash(e,v):v)}})}
   patch(window.HTMLImageElement&&HTMLImageElement.prototype,'src');
   patch(window.HTMLMediaElement&&HTMLMediaElement.prototype,'src');
   patch(window.HTMLMediaElement&&HTMLVideoElement.prototype,'poster');
   patch(window.HTMLSourceElement&&HTMLSourceElement.prototype,'src');
   patch(window.HTMLLinkElement&&HTMLLinkElement.prototype,'href');
   patch(window.HTMLScriptElement&&HTMLScriptElement.prototype,'src',true);
+  addEventListener('error',function(ev){var t=ev.target;if(t&&t!==window&&t.tagName&&/^(IMG|AUDIO|VIDEO|SOURCE|IMAGE)$/i.test(t.tagName))L('err',(t.getAttribute('src')||t.getAttribute('href')||t.currentSrc||'?')+'  (화면 요소)')},true);
   var SA=Element.prototype.setAttribute;
   Element.prototype.setAttribute=function(n,v){var ln=String(n).toLowerCase();
-    if((ln==='src'||ln==='href'||ln==='xlink:href'||ln==='poster')&&typeof v==='string'&&this.tagName.toLowerCase()!=='a'){var e=res(v);
+    if((ln==='src'||ln==='href'||ln==='xlink:href'||ln==='poster')&&v!=null&&this.tagName.toLowerCase()!=='a'){var e=res(v);
       if(e){if(ln==='src'&&this.tagName.toLowerCase()==='script'){inlineScript(this,e);return}return SA.call(this,n,withHash(e,v))}}
     return SA.call(this,n,v)};
   var OA=window.Audio;if(OA){var NA=function(u){var a=new OA();if(u!==undefined)a.src=u;return a};NA.prototype=OA.prototype;window.Audio=NA}
@@ -391,16 +413,45 @@ async function playGame(g){
   busy(true);
   try{
     const v=await zipToVFS(g.blob);if(!v.entry)throw new Error('no html');
-    freeVFS(VFS);VFS=v;current=g;
+    freeVFS(VFS);VFS=v;current=g;resetLog();
     $('#frame').srcdoc=await buildDoc(v.entry);
     $('#ptitle').textContent=g.name;$('#player').hidden=false;document.body.classList.add('playing');
   }catch(e){toast('게임을 열지 못했어요. 파일이 손상됐을 수 있어요.')}
   busy(false);
 }
+let LOG=null;
+function resetLog(){LOG={hit:0,set:0,miss:new Map(),err:new Map()}}
+window.__gcLog=(k,v)=>{if(!LOG)return;if(k==='hit')LOG.hit++;else if(k==='set')LOG.set++;else{const m=LOG[k];if(m&&(m.size<300||m.has(v)))m.set(v,(m.get(v)||0)+1)}};
+function diagText(){
+  if(!VFS)return '게임이 열려 있지 않아요.';
+  const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,miss:new Map(),err:new Map()};
+  const out=[];
+  out.push('게임: '+(current?current.name:'?'));
+  out.push('zip 안 파일 수: '+paths.length+'개');
+  out.push('처음 연 HTML: '+VFS.entry);
+  out.push('zip에서 찾아 연결한 요청: '+L.hit+'번');
+  out.push('이미지·사운드 주소 지정: '+L.set+'번');
+  const near=p=>{const base=p.split('/').pop().toLowerCase();return paths.filter(x=>x.toLowerCase().endsWith('/'+base)||x.toLowerCase()===base).slice(0,3)};
+  out.push('','[zip에서 못 찾은 경로] '+L.miss.size+'개');
+  for(const [p] of [...L.miss].slice(0,15)){const n=near(p);out.push('- '+p+(n.length?'\n    같은 이름 파일: '+n.join(', '):'\n    같은 이름 파일 없음'))}
+  out.push('','[불러오기 실패] '+L.err.size+'개');
+  for(const [p] of [...L.err].slice(0,15))out.push('- '+p);
+  const dirs=new Map();for(const x of paths){const d=x.split('/').slice(0,3).join('/');if(x.split('/').length>3)dirs.set(d,(dirs.get(d)||0)+1)}
+  out.push('','[zip 안 폴더 (앞 3단계)]');
+  for(const [d,c] of [...dirs].sort((a,b)=>b[1]-a[1]).slice(0,15))out.push('- '+d+'/  ('+c+'개)');
+  const top=paths.filter(x=>x.split('/').length<=2).slice(0,15);
+  out.push('','[바깥쪽 파일]');top.forEach(x=>out.push('- '+x));
+  return out.join('\n');
+}
+function openDiag(){$('#diagText').value=diagText();$('#diag').hidden=false}
 window.__gcOpen=async p=>{try{$('#frame').srcdoc=await buildDoc(p)}catch(e){toast('페이지를 열지 못했어요.')}};
 function closePlayer(){$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
 $('#back').onclick=closePlayer;
-$('#reload').onclick=async()=>{if(VFS&&VFS.entry)$('#frame').srcdoc=await buildDoc(VFS.entry)};
+$('#reload').onclick=async()=>{if(VFS&&VFS.entry){resetLog();$('#frame').srcdoc=await buildDoc(VFS.entry)}};
+$('#diagBtn').onclick=openDiag;
+$('#diagClose').onclick=()=>{$('#diag').hidden=true};
+$('#diagRefresh').onclick=openDiag;
+$('#diagCopy').onclick=async()=>{const t=$('#diagText');try{await navigator.clipboard.writeText(t.value);toast('진단 내용을 복사했어요')}catch(e){t.focus();t.select();toast('글자를 길게 눌러 복사해 주세요')}};
 
 $('#zipIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)await addGame(f,f.name)};
 $('#dirIn').onchange=async e=>{
