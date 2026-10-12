@@ -211,7 +211,7 @@ async function zipToVFS(blob){
     jobs.push(f.async('blob').then(async b=>{path=path.normalize('NFC');
       const type=MIME[ext(path)]||'application/octet-stream';
       const bb=new Blob([b],{type});
-      const e={path,blob:bb,type,url:URL.createObjectURL(bb)};
+      const e={path,blob:bb,type,_u:null,get url(){return this._u||(this._u=URL.createObjectURL(this.blob))}};
       if(/^(js|mjs)$/.test(ext(path)))e.text=await bb.text();
       map.set(path,e);lower.set(path.toLowerCase(),e);
       const segs=path.toLowerCase().split('/');
@@ -225,7 +225,7 @@ async function zipToVFS(blob){
   });
   return {map,lower,suffix,entry:htmls[0]||null,root:htmls[0]?dirOf(htmls[0]):''};
 }
-function freeVFS(v){if(!v)return;for(const e of v.map.values())URL.revokeObjectURL(e.url)}
+function freeVFS(v){if(!v)return;for(const e of v.map.values()){if(e._u)URL.revokeObjectURL(e._u);e.dataUrl=null}}
 
 async function replaceAsync(str,re,fn){const parts=[];let last=0;for(const m of str.matchAll(re)){parts.push(str.slice(last,m.index),fn(...m));last=m.index+m[0].length}parts.push(str.slice(last));return (await Promise.all(parts)).join('')}
 async function rewriteCss(css,dir,depth=0){
@@ -276,7 +276,20 @@ function gcShim(){
       if(e&&isScript){inlineScript(this,e);return}
       if(!isScript&&v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);this.addEventListener('error',function(){L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
       d.set.call(this,e?withHash(e,v):v)}})}
-  patch(window.HTMLImageElement&&HTMLImageElement.prototype,'src');
+  /* 이미지: crossOrigin이 붙은 효과 이미지는 Safari에서 blob 주소가 막힐 수 있어 data 주소로 넘긴다 */
+  (function(){var IP=window.HTMLImageElement&&HTMLImageElement.prototype;if(!IP)return;
+    var sd=Object.getOwnPropertyDescriptor(IP,'src'),cd=Object.getOwnPropertyDescriptor(IP,'crossOrigin');if(!sd||!sd.set)return;
+    function toData(img,e){if(e.dataUrl){sd.set.call(img,e.dataUrl);return}var fr=new FileReader();
+      fr.onload=function(){e.dataUrl=fr.result;if(img.__gcE===e)sd.set.call(img,fr.result)};
+      fr.onerror=function(){if(img.__gcE===e)sd.set.call(img,e.url)};fr.readAsDataURL(e.blob)}
+    Object.defineProperty(IP,'src',{configurable:true,enumerable:sd.enumerable,get:sd.get,set:function(v){
+      var e=v!=null&&res(v),img=this;img.__gcE=e||null;
+      if(v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);img.addEventListener('error',function(){L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
+      if(e&&img.getAttribute('crossorigin')!==null){toData(img,e);return}
+      sd.set.call(img,e?withHash(e,v):v)}});
+    if(cd&&cd.set)Object.defineProperty(IP,'crossOrigin',{configurable:true,enumerable:cd.enumerable,get:cd.get,set:function(v){
+      cd.set.call(this,v);if(v!=null&&this.__gcE)toData(this,this.__gcE)}});
+  })();
   patch(window.HTMLMediaElement&&HTMLMediaElement.prototype,'src');
   patch(window.HTMLMediaElement&&HTMLVideoElement.prototype,'poster');
   patch(window.HTMLSourceElement&&HTMLSourceElement.prototype,'src');
@@ -285,8 +298,10 @@ function gcShim(){
   addEventListener('error',function(ev){var t=ev.target;if(t&&t!==window&&t.tagName&&/^(IMG|AUDIO|VIDEO|SOURCE|IMAGE)$/i.test(t.tagName))L('err',(t.getAttribute('src')||t.getAttribute('href')||t.currentSrc||'?')+'  (화면 요소)')},true);
   var SA=Element.prototype.setAttribute;
   Element.prototype.setAttribute=function(n,v){var ln=String(n).toLowerCase();
+    if(ln==='crossorigin'&&this instanceof HTMLImageElement){this.crossOrigin=v===''?'anonymous':v;return}
     if((ln==='src'||ln==='href'||ln==='xlink:href'||ln==='poster')&&v!=null&&this.tagName.toLowerCase()!=='a'){var e=res(v);
-      if(e){if(ln==='src'&&this.tagName.toLowerCase()==='script'){inlineScript(this,e);return}return SA.call(this,n,withHash(e,v))}}
+      if(e){if(ln==='src'&&this.tagName.toLowerCase()==='script'){inlineScript(this,e);return}
+        if(ln==='src'&&this instanceof HTMLImageElement){this.src=v;return}return SA.call(this,n,withHash(e,v))}}
     return SA.call(this,n,v)};
   var OA=window.Audio;if(OA){var NA=function(u){var a=new OA();if(u!==undefined)a.src=u;return a};NA.prototype=OA.prototype;window.Audio=NA}
   document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest('a[href]');if(!a)return;
@@ -322,7 +337,7 @@ async function buildDoc(path){
   }
   const pairs=[['img','src'],['source','src'],['audio','src'],['video','src'],['video','poster'],['track','src'],['input','src'],['embed','src'],['object','data'],
     ['link','href'],['image','href'],['image','xlink:href'],['use','href'],['use','xlink:href'],['feImage','href']];
-  for(const [tag,attr] of pairs)for(const el of doc.getElementsByTagName(tag)){const v=el.getAttribute(attr);if(v==null)continue;const r=rewriteUrl(dir,v);if(r)el.setAttribute(attr,r)}
+  for(const [tag,attr] of pairs)for(const el of doc.getElementsByTagName(tag)){const v=el.getAttribute(attr);if(v==null)continue;const r=rewriteUrl(dir,v);if(r){el.setAttribute(attr,r);el.removeAttribute('crossorigin')}}
   for(const el of doc.querySelectorAll('[srcset]'))el.setAttribute('srcset',el.getAttribute('srcset').split(',').map(part=>{
     const bits=part.trim().split(/\s+/);const r=rewriteUrl(dir,bits[0]);if(r)bits[0]=r;return bits.join(' ')}).join(', '));
   deferred.forEach(n=>doc.body.appendChild(n));
