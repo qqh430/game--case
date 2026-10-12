@@ -201,6 +201,9 @@ function resolveRel(dir,u){
   return u.startsWith('/')?normPath(VFS.root+'/'+u):normPath(dir+'/'+u);
 }
 const entry=(dir,u)=>vfsGet(resolveRel(dir,u));
+function dataUrlOf(e){if(e.dataUrl)return Promise.resolve(e.dataUrl);return new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>{e.dataUrl=fr.result;ok(fr.result)};fr.onerror=no;fr.readAsDataURL(e.blob)})}
+async function cssUrl(dir,u){const t=entry(dir,u);if(!t)return null;try{await ensure(t)}catch(e){return null}
+  if(t.blob.size<=1048576&&!/^(text\/css)$/.test(t.type)){try{return (await dataUrlOf(t))}catch(e){}}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
 async function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;try{await ensure(t)}catch(e){return null}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
 
 async function zipToVFS(blob){
@@ -235,19 +238,19 @@ async function rewriteCss(css,dir,depth=0){
     const inner=await rewriteCss(await textOf(t),dirOf(t.path),depth+1);
     return media.trim()?`@media ${media.trim()}{${inner}}`:inner;
   });
-  return replaceAsync(css,/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,async(m,q,u)=>{const r=await rewriteUrl(dir,u);return r?`url("${r}")`:m});
+  return replaceAsync(css,/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,async(m,q,u)=>{const r=await cssUrl(dir,u);return r?`url("${r}")`:m});
 }
 
 /* runs inside the game frame: routes the game's own file requests to the zip contents */
 function gcShim(){
   var P=window.parent;if(!P||!P.__gcGet)return;
   var L=P.__gcLog||function(){};
-  function res(u){try{if(u==null)return null;var s=String(u);
+  function res(u,quiet){try{if(u==null)return null;var s=String(u);
     if(/^about:/i.test(s))s=s.replace(/^about:(srcdoc|blank)?\/*/i,'');
     if(/^(blob|data):/i.test(s))return null;
-    var x=new URL(s,document.baseURI);if(x.hostname!=='gc.local')return null;
+    var x=new URL(s,document.baseURI);if(x.hostname!=='gc.invalid')return null;
     var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(e){}
-    var e=P.__gcGet(p);L(e?'hit':'miss',p);return e}catch(e){return null}}
+    var e=P.__gcGet(p);if(!quiet)L(e?'hit':'miss',p);return e}catch(e){return null}}
   function withHash(e,v){var s=String(v),h=s.indexOf('#');return e.url+(h>=0?s.slice(h):'')}
   function ready(e){return P.__gcEnsure(e)}
   function when(e,fn,onFail){if(e.blob){fn();return}ready(e).then(fn,onFail||function(){})}
@@ -282,20 +285,45 @@ function gcShim(){
       var el=this;el.__gcE=e||null;
       if(e){when(e,function(){if(el.__gcE===e)d.set.call(el,withHash(e,v))});return}
       d.set.call(el,v)}})}
-  /* 이미지: crossOrigin이 붙은 효과 이미지는 Safari에서 blob 주소가 막힐 수 있어 data 주소로 넘긴다 */
-  (function(){var IP=window.HTMLImageElement&&HTMLImageElement.prototype;if(!IP)return;
-    var sd=Object.getOwnPropertyDescriptor(IP,'src'),cd=Object.getOwnPropertyDescriptor(IP,'crossOrigin');if(!sd||!sd.set)return;
-    function toData(img,e){if(e.dataUrl){sd.set.call(img,e.dataUrl);return}if(!e.blob){when(e,function(){if(img.__gcE===e)toData(img,e)});return}var fr=new FileReader();
-      fr.onload=function(){e.dataUrl=fr.result;if(img.__gcE===e)sd.set.call(img,fr.result)};
-      fr.onerror=function(){if(img.__gcE===e)sd.set.call(img,e.url)};fr.readAsDataURL(e.blob)}
+  /* 이미지: 프레임 blob → 부모 blob → data 주소 순으로 시험해서, 실제로 열리는 방식으로 넘긴다 (Safari 대응) */
+  var IP=window.HTMLImageElement&&HTMLImageElement.prototype,RA=Element.prototype.removeAttribute;
+  var sd=IP&&Object.getOwnPropertyDescriptor(IP,'src'),cd=IP&&Object.getOwnPropertyDescriptor(IP,'crossOrigin');
+  var METHOD=null,PC=new Map(),MNAME=['프레임 blob','부모 blob','data'];
+  function mk(m,e){
+    if(m===0){var k='i:'+e.path;if(!PC.has(k))PC.set(k,URL.createObjectURL(e.blob));return Promise.resolve(PC.get(k))}
+    if(m===1)return Promise.resolve(e.url);
+    return new Promise(function(ok,no){if(e.dataUrl)return ok(e.dataUrl);var fr=new FileReader();fr.onload=function(){e.dataUrl=fr.result;ok(fr.result)};fr.onerror=function(){no()};fr.readAsDataURL(e.blob)});
+  }
+  function probe(u,cors){return new Promise(function(ok,no){var t=document.createElement('img');if(cors!=null&&cd&&cd.set)cd.set.call(t,cors);
+    t.onload=function(){ok(u)};t.onerror=function(){no()};sd.set.call(t,u)})}
+  function pick(e,cors){
+    var key=e.path+'|'+cors;if(PC.has(key))return Promise.resolve(PC.get(key));
+    var order=METHOD==null?[0,1,2]:[METHOD].concat([0,1,2].filter(function(x){return x!==METHOD})),i=0;
+    return new Promise(function(ok,no){(function next(){
+      if(i>=order.length){e.blob.slice(0,8).arrayBuffer().then(function(b){
+        var h=Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2)}).join('');
+        no('모든 방식 실패, 크기 '+e.blob.size+'B, 앞부분 '+h)},function(){no('모든 방식 실패')});return}
+      var m=order[i++];
+      mk(m,e).then(function(u){return probe(u,cors)}).then(function(u){if(METHOD!==m){METHOD=m;L('meth',MNAME[m])}PC.set(key,u);ok(u)},
+        function(){L('mfail',MNAME[m]+(cors!=null?' (crossOrigin)':''));next()});
+    })()});
+  }
+  function hashOf(v){var s=String(v),h=s.indexOf('#');return h>=0?s.slice(h):''}
+  if(IP&&sd&&sd.set){
     Object.defineProperty(IP,'src',{configurable:true,enumerable:sd.enumerable,get:sd.get,set:function(v){
-      var e=v!=null&&res(v),img=this;img.__gcE=e||null;
-      if(v){var sv=String(v);if(!/^(blob|data):/i.test(sv)){L('set',sv);img.addEventListener('error',function(){if(img.__gcE===(e||null))L('err',sv+(e?'  (파일은 찾았지만 열리지 않음)':'  (zip에서 못 찾음)'))},{once:true})}}
-      if(e){when(e,function(){if(img.__gcE!==e)return;if(img.getAttribute('crossorigin')!==null)toData(img,e);else sd.set.call(img,withHash(e,v))},function(){if(img.__gcE===e)L('err',String(v)+'  (압축 해제 실패)')});return}
+      var e=v!=null&&res(v),img=this;img.__gcE=e||null;img.__gcV=v;
+      var sv=v==null?'':String(v);
+      if(sv&&!/^(blob|data):/i.test(sv)){L('set',sv);if(!e)img.addEventListener('error',function(){if(img.__gcE===null&&img.__gcV===v)L('err',sv+'  (zip에서 못 찾음)')},{once:true})}
+      if(e){
+        if(img.hasAttribute('src'))RA.call(img,'src');
+        var cors=img.getAttribute('crossorigin');
+        ready(e).then(function(){return pick(e,cors)}).then(function(u){if(img.__gcE===e)sd.set.call(img,u+hashOf(v))},
+          function(why){if(img.__gcE!==e)return;L('err',sv+'  ('+(typeof why==='string'?why:'압축 해제 실패')+')');sd.set.call(img,e.url||'about:blank#gc-missing')});
+        return}
       sd.set.call(img,v)}});
     if(cd&&cd.set)Object.defineProperty(IP,'crossOrigin',{configurable:true,enumerable:cd.enumerable,get:cd.get,set:function(v){
-      cd.set.call(this,v);if(v!=null&&this.__gcE)toData(this,this.__gcE)}});
-  })();
+      cd.set.call(this,v);if(this.__gcE)this.src=this.__gcV}});
+  }
   patch(window.HTMLMediaElement&&HTMLMediaElement.prototype,'src');
   patch(window.HTMLMediaElement&&HTMLVideoElement.prototype,'poster');
   patch(window.HTMLSourceElement&&HTMLSourceElement.prototype,'src');
@@ -311,9 +339,44 @@ function gcShim(){
         var el=this;when(e,function(){SA.call(el,n,withHash(e,v))});return}}
     return SA.call(this,n,v)};
   var OA=window.Audio;if(OA){var NA=function(u){var a=new OA();if(u!==undefined)a.src=u;return a};NA.prototype=OA.prototype;window.Audio=NA}
+  /* HTML 글자로 넣은 요소(innerHTML 등)는 위의 장치를 거치지 않으므로, 넣자마자 찾아서 고친다 */
+  var FSEL='img[src],img[data-gc-src],source[src],audio[src],video[src],video[poster],input[src],[style*="url("]';
+  function fixStyle(el,st){
+    var parts=[],re=/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,m,last=0,jobs=[];
+    while((m=re.exec(st))){var u=m[2];if(/^(blob|data):/i.test(u))continue;var e=res(u,true);if(!e)continue;
+      jobs.push({a:m.index,b:m.index+m[0].length,e:e})}
+    if(!jobs.length)return;
+    Promise.all(jobs.map(function(j){return ready(j.e).then(function(){return pick(j.e,null)}).then(function(u){j.u=u},function(){j.u=null})})).then(function(){
+      if(el.getAttribute('style')!==st)return;var out='',pos=0;
+      jobs.forEach(function(j){out+=st.slice(pos,j.a)+(j.u?'url("'+j.u+'")':st.slice(j.a,j.b));pos=j.b});out+=st.slice(pos);
+      SA.call(el,'style',out)});
+  }
+  function fixEl(el){
+    if(!el||el.nodeType!==1)return;
+    var g=el.getAttribute('data-gc-src');
+    if(g!=null){RA.call(el,'data-gc-src');el.src=g}
+    else if(el.hasAttribute('src')&&'src' in el){var v=el.getAttribute('src');if(v&&!/^(blob|data):/i.test(v)&&res(v,true))el.src=v}
+    if(el.tagName==='VIDEO'&&el.hasAttribute('poster')){var pv=el.getAttribute('poster');if(pv&&!/^(blob|data):/i.test(pv)&&res(pv,true))el.poster=pv}
+    var st=el.getAttribute('style');if(st&&/url\(/i.test(st))fixStyle(el,st);
+  }
+  function fixTree(root){if(!root)return;if(root.nodeType===1&&root.matches&&root.matches(FSEL))fixEl(root);
+    if(root.querySelectorAll)Array.prototype.forEach.call(root.querySelectorAll(FSEL),fixEl);
+    if(root.content&&root.content.querySelectorAll)fixTree(root.content)}
+  ['innerHTML','outerHTML'].forEach(function(k){var d=Object.getOwnPropertyDescriptor(Element.prototype,k);if(!d||!d.set)return;
+    Object.defineProperty(Element.prototype,k,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){
+      var par=k==='outerHTML'?this.parentNode:null;d.set.call(this,v);fixTree(k==='outerHTML'?par:this)}})});
+  var IAH=Element.prototype.insertAdjacentHTML;
+  if(IAH)Element.prototype.insertAdjacentHTML=function(){var r=IAH.apply(this,arguments);fixTree(this.parentNode||this);return r};
+  if(window.Range&&Range.prototype.createContextualFragment){var CCF=Range.prototype.createContextualFragment;
+    Range.prototype.createContextualFragment=function(){var f=CCF.apply(this,arguments);fixTree(f);return f}}
+  new MutationObserver(function(list){list.forEach(function(r){
+    if(r.type==='childList')r.addedNodes.forEach(function(n){if(n.nodeType===1)fixTree(n)});
+    else if(r.target.nodeType===1){var t=r.target;if(r.attributeName==='style'){var st=t.getAttribute('style');if(st&&/url\(/i.test(st))fixStyle(t,st)}else fixEl(t)}
+  })}).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','style','poster','data-gc-src']});
+  document.addEventListener('DOMContentLoaded',function(){fixTree(document.body)});
   document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest('a[href]');if(!a)return;
     var raw=a.getAttribute('href')||'',x;try{x=new URL(a.href)}catch(_){return}
-    if(x.hostname!=='gc.local'){if(!a.target)a.target='_blank';return}
+    if(x.hostname!=='gc.invalid'){if(!a.target)a.target='_blank';return}
     ev.preventDefault();
     if(raw.charAt(0)==='#'){var id=raw.slice(1),t=id&&(document.getElementById(id)||document.getElementsByName(id)[0]);if(t)t.scrollIntoView();else window.scrollTo(0,0);return}
     var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(_){}
@@ -342,14 +405,15 @@ async function buildDoc(path){
     n.textContent=(await textOf(t)).replace(/<\/script/gi,'<\\/script');
     if(sc.hasAttribute('defer')||(sc.getAttribute('type')||'').toLowerCase()==='module'){sc.remove();deferred.push(n)}else sc.replaceWith(n);
   }
-  const pairs=[['img','src'],['source','src'],['audio','src'],['video','src'],['video','poster'],['track','src'],['input','src'],['embed','src'],['object','data'],
+  const pairs=[['source','src'],['audio','src'],['video','src'],['video','poster'],['track','src'],['input','src'],['embed','src'],['object','data'],
     ['link','href'],['image','href'],['image','xlink:href'],['use','href'],['use','xlink:href'],['feImage','href']];
   for(const [tag,attr] of pairs)for(const el of [...doc.getElementsByTagName(tag)]){const v=el.getAttribute(attr);if(v==null)continue;const r=await rewriteUrl(dir,v);if(r){el.setAttribute(attr,r);el.removeAttribute('crossorigin')}}
   for(const el of doc.querySelectorAll('[srcset]'))el.setAttribute('srcset',(await Promise.all(el.getAttribute('srcset').split(',').map(async part=>{
     const bits=part.trim().split(/\s+/);const r=await rewriteUrl(dir,bits[0]);if(r)bits[0]=r;return bits.join(' ')}))).join(', '));
+  for(const im of [...doc.getElementsByTagName('img')]){const v=im.getAttribute('src');if(v&&entry(dir,v)){im.setAttribute('data-gc-src',v);im.removeAttribute('src')}}
   deferred.forEach(n=>doc.body.appendChild(n));
   const head=doc.head;
-  const base=doc.createElement('base');base.setAttribute('href','https://gc.local/'+(dir?dir.split('/').map(encodeURIComponent).join('/')+'/':''));
+  const base=doc.createElement('base');base.setAttribute('href','https://gc.invalid/'+(dir?dir.split('/').map(encodeURIComponent).join('/')+'/':''));
   const shim=doc.createElement('script');shim.textContent='('+gcShim.toString()+')();';
   head.insertBefore(shim,head.firstChild);head.insertBefore(base,head.firstChild);
   return (hadDoctype?'<!DOCTYPE html>\n':'')+doc.documentElement.outerHTML;
@@ -442,18 +506,20 @@ async function playGame(g){
   busy(false);
 }
 let LOG=null;
-function resetLog(){LOG={hit:0,set:0,miss:new Map(),err:new Map()}}
-window.__gcLog=(k,v)=>{if(!LOG)return;if(k==='hit')LOG.hit++;else if(k==='set')LOG.set++;else{const m=LOG[k];if(m&&(m.size<300||m.has(v)))m.set(v,(m.get(v)||0)+1)}};
+function resetLog(){LOG={hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()}}
+window.__gcLog=(k,v)=>{if(!LOG)return;if(k==='hit')LOG.hit++;else if(k==='set')LOG.set++;else if(k==='meth')LOG.meth=v;else{const m=LOG[k];if(m&&(m.size<300||m.has(v)))m.set(v,(m.get(v)||0)+1)}};
 function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
-  const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,miss:new Map(),err:new Map()};
+  const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()};
   const out=[];
-  out.push('앱 버전: 5 (필요할 때 압축 해제)');
+  out.push('앱 버전: 6 (이미지 방식 자동 선택)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
   out.push('zip에서 찾아 연결한 요청: '+L.hit+'번');
   out.push('이미지·사운드 주소 지정: '+L.set+'번');
+  out.push('이미지 연결 방식: '+(L.meth||'아직 없음'));
+  if(L.mfail.size)out.push('방식별 실패: '+[...L.mfail].map(([k,c])=>k+' '+c+'번').join(', '));
   const near=p=>{const base=p.split('/').pop().toLowerCase();return paths.filter(x=>x.toLowerCase().endsWith('/'+base)||x.toLowerCase()===base).slice(0,3)};
   out.push('','[zip에서 못 찾은 경로] '+L.miss.size+'개');
   for(const [p] of [...L.miss].slice(0,15)){const n=near(p);out.push('- '+p+(n.length?'\n    같은 이름 파일: '+n.join(', '):'\n    같은 이름 파일 없음'))}
