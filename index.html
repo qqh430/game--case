@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>게임 케이스</title>
+<meta name="description" content="zip으로 묶은 HTML 게임을 이미지·사운드까지 그대로 실행하는 보관함">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="게임 케이스">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ECEEF3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13161E" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;600;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a cartridge shelf. Import tray on top, library of cartridges below, full-screen player overlay. */
+:root{
+  --bg:#ECEEF3; --surface:#FFFFFF; --ink:#1B2030; --muted:#5C6375; --line:#D3D8E2; --accent:#D9472F; --accent-ink:#FFFFFF;
+  --f-display:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13161E; --surface:#1D212C; --ink:#E7E9EF; --muted:#959CAE; --line:#2D3341; --accent:#FF6B52; --accent-ink:#1B0D09; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#13161E; --surface:#1D212C; --ink:#E7E9EF; --muted:#959CAE; --line:#2D3341; --accent:#FF6B52; --accent-ink:#1B0D09; color-scheme:dark}
+
+html,body{height:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+*,*::before,*::after{box-sizing:border-box}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+body.playing{overflow:hidden}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:flex;flex-direction:column;gap:28px}
+
+header h1{font-family:var(--f-display);font-weight:400;font-size:2.4rem;line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:8px 0 0;color:var(--muted);max-width:34em}
+
+.tray{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tray label{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-radius:12px;cursor:pointer;border:1.5px solid var(--line);background:var(--surface);min-width:0}
+.tray label.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tray label strong{font-size:1.02rem;font-weight:800}
+.tray label span{font-size:.82rem;opacity:.82}
+.tray input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tray label:focus-within{outline:3px solid var(--ink);outline-offset:2px}
+@media (max-width:420px){.tray{grid-template-columns:1fr}}
+
+.shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1.5px solid var(--ink);padding-bottom:6px}
+.shelf-head h2{font-family:var(--f-display);font-weight:400;font-size:1.4rem;margin:0}
+.shelf-head .count{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px;margin-top:16px}
+.cart{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cart .play{all:unset;cursor:pointer;display:block;border-radius:6px}
+.cart .play:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.shell{position:relative;aspect-ratio:5/6;max-width:100%;background:var(--c);border-radius:6px 6px 10px 10px;
+  clip-path:polygon(0 0,82% 0,100% 12%,100% 100%,0 100%);padding:12px;display:flex;flex-direction:column;justify-content:flex-end;
+  box-shadow:inset 0 -10px 0 rgba(0,0,0,.18);transition:transform .15s ease}
+.shell::before{content:"";position:absolute;left:12px;right:12px;top:12px;height:6px;border-radius:3px;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.22) 0 6px,transparent 6px 10px)}
+.sticker{background:#FAF8F2;color:#1B2030;border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:2px;margin-bottom:8px;min-height:58%}
+.sticker .initial{font-family:var(--f-display);font-size:2.3rem;line-height:1}
+.sticker .kind{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-top:auto}
+.cart .play:hover .shell{transform:translateY(-3px)}
+.cart .play:active .shell{transform:translateY(1px)}
+.cart.fresh .shell{animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.04)}100%{transform:none}}
+.meta{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0}
+.meta .name{font-weight:800;font-size:.95rem;line-height:1.3;overflow-wrap:anywhere}
+.meta .info{display:block;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);font-weight:500}
+.del{flex:none;font:inherit;font-size:.75rem;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:2px 9px;cursor:pointer}
+.del.armed{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.del:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.notes section{border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.notes h3{margin:0 0 6px;font-size:.95rem;font-weight:800}
+.notes ol,.notes ul{margin:0;padding-left:1.2em;color:var(--muted);font-size:.88rem}
+.notes li+li{margin-top:3px}
+@media (max-width:560px){.notes{grid-template-columns:1fr}}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:999px;font-size:.88rem;font-weight:600;max-width:calc(100% - 32px);text-align:center;z-index:30}
+#busy{position:fixed;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 80%,transparent);z-index:25;font-weight:800}
+
+#player{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column}
+#player .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--surface);color:var(--ink);border-bottom:1px solid var(--line)}
+#player .bar button{font:inherit;font-weight:700;font-size:.88rem;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer;flex:none}
+#player .bar button:focus-visible{outline:2px solid var(--accent)}
+#ptitle{flex:1;min-width:0;text-align:center;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#frame{flex:1;width:100%;border:0;background:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-reduced-motion:reduce){.shell,.cart.fresh .shell{transition:none;animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>게임 케이스</h1>
+    <p>HTML 게임 폴더를 zip으로 넣으면 이미지, CSS, 스크립트, 사운드를 그대로 불러와 실행해요. 넣은 게임은 이 기기에 보관돼요.</p>
+  </header>
+
+  <div class="tray">
+    <label class="primary" for="zipIn">
+      <strong>zip 파일 넣기</strong>
+      <span>게임 폴더를 압축한 파일</span>
+      <input id="zipIn" type="file" accept=".zip,application/zip,application/x-zip-compressed">
+    </label>
+    <label for="dirIn">
+      <strong>폴더 넣기</strong>
+      <span>폴더 선택을 지원하는 브라우저용</span>
+      <input id="dirIn" type="file" webkitdirectory multiple>
+    </label>
+  </div>
+
+  <div>
+    <div class="shelf-head"><h2>보관함</h2><span class="count" id="count"></span></div>
+    <div class="shelf" id="shelf"></div>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h3>아이폰에서 zip 만들기</h3>
+      <ol>
+        <li>파일 앱에서 게임 폴더를 길게 누르세요.</li>
+        <li>‘압축’을 누르면 같은 자리에 .zip이 생겨요.</li>
+        <li>위의 ‘zip 파일 넣기’로 그 파일을 고르세요.</li>
+      </ol>
+    </section>
+    <section>
+      <h3>잘 안 될 때</h3>
+      <ul>
+        <li>폴더 안에 index.html이 있어야 그걸 먼저 열어요.</li>
+        <li>import로 다른 파일을 불러오는 모듈 스크립트는 실행되지 않을 수 있어요.</li>
+        <li>외부 사이트에서 불러오는 라이브러리는 막힐 수 있어요.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<div id="player" hidden>
+  <div class="bar">
+    <button id="back" type="button">← 보관함</button>
+    <span id="ptitle"></span>
+    <button id="reload" type="button">다시 시작</button>
+  </div>
+  <iframe id="frame" title="게임 화면" allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
+</div>
+<div id="busy" hidden>게임을 여는 중…</div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="jszip.min.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const MIME={html:'text/html',htm:'text/html',css:'text/css',js:'text/javascript',mjs:'text/javascript',json:'application/json',
+  png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',avif:'image/avif',
+  mp3:'audio/mpeg',ogg:'audio/ogg',oga:'audio/ogg',wav:'audio/wav',m4a:'audio/mp4',aac:'audio/aac',flac:'audio/flac',mp4:'video/mp4',webm:'video/webm',
+  woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',otf:'font/otf',txt:'text/plain',xml:'application/xml',wasm:'application/wasm',csv:'text/csv',tmx:'application/xml',fnt:'text/plain',atlas:'text/plain'};
+const ext=p=>(p.split('.').pop()||'').toLowerCase();
+const dirOf=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'';
+const COLORS=['#D9472F','#2F6FD9','#1F9E74','#E0A11B','#7A4FD1','#C2387F','#3A8E9E','#5E6B2E'];
+
+/* ---------- virtual file system ---------- */
+let VFS=null;
+function normPath(p){const o=[];for(const s of p.split('/')){if(!s||s==='.')continue;if(s==='..')o.pop();else o.push(s)}return o.join('/')}
+function vfsGet(p){if(!VFS||p==null)return null;return VFS.map.get(p)||VFS.lower.get(String(p).toLowerCase())||null}
+window.__gcGet=vfsGet;
+function isExternal(u){return /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(u)}
+function resolveRel(dir,u){
+  if(u==null)return null;u=String(u).trim();if(!u||isExternal(u))return null;
+  u=u.split('#')[0].split('?')[0];if(!u)return null;
+  try{u=decodeURIComponent(u)}catch(e){}
+  return u.startsWith('/')?normPath(VFS.root+'/'+u):normPath(dir+'/'+u);
+}
+const entry=(dir,u)=>vfsGet(resolveRel(dir,u));
+function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
+
+async function zipToVFS(blob){
+  const zip=await JSZip.loadAsync(blob);
+  const map=new Map(),lower=new Map(),jobs=[];
+  zip.forEach((path,f)=>{
+    if(f.dir||/(^|\/)__MACOSX\//.test(path)||/(^|\/)\.DS_Store$/.test(path)||/(^|\/)\._/.test(path))return;
+    jobs.push(f.async('blob').then(async b=>{
+      const type=MIME[ext(path)]||'application/octet-stream';
+      const bb=new Blob([b],{type});
+      const e={path,blob:bb,type,url:URL.createObjectURL(bb)};
+      if(/^(js|mjs)$/.test(ext(path)))e.text=await bb.text();
+      map.set(path,e);lower.set(path.toLowerCase(),e);
+    }));
+  });
+  await Promise.all(jobs);
+  const htmls=[...map.keys()].filter(p=>/\.html?$/i.test(p)).sort((a,b)=>{
+    const da=a.split('/').length,db=b.split('/').length;if(da!==db)return da-db;
+    const ia=/(^|\/)index\.html?$/i.test(a)?0:1,ib=/(^|\/)index\.html?$/i.test(b)?0:1;return ia-ib||a.localeCompare(b);
+  });
+  return {map,lower,entry:htmls[0]||null,root:htmls[0]?dirOf(htmls[0]):''};
+}
+function freeVFS(v){if(!v)return;for(const e of v.map.values())URL.revokeObjectURL(e.url)}
+
+async function replaceAsync(str,re,fn){const parts=[];let last=0;for(const m of str.matchAll(re)){parts.push(str.slice(last,m.index),fn(...m));last=m.index+m[0].length}parts.push(str.slice(last));return (await Promise.all(parts)).join('')}
+async function rewriteCss(css,dir,depth=0){
+  if(depth<6)css=await replaceAsync(css,/@import\s+(?:url\(\s*)?(['"]?)([^'")\s;]+)\1\s*\)?([^;]*);/gi,async(m,q,u,media)=>{
+    const t=entry(dir,u);if(!t)return m;
+    const inner=await rewriteCss(await t.blob.text(),dirOf(t.path),depth+1);
+    return media.trim()?`@media ${media.trim()}{${inner}}`:inner;
+  });
+  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi,(m,q,u)=>{const r=rewriteUrl(dir,u);return r?`url("${r}")`:m});
+}
+
+/* runs inside the game frame: routes the game's own file requests to the zip contents */
+function gcShim(){
+  var P=window.parent;if(!P||!P.__gcGet)return;
+  function res(u){try{if(u==null)return null;var x=new URL(String(u),document.baseURI);if(x.hostname!=='gc.local')return null;
+    var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(e){}return P.__gcGet(p)}catch(e){return null}}
+  function withHash(e,v){var s=String(v),h=s.indexOf('#');return e.url+(h>=0?s.slice(h):'')}
+  function inlineScript(el,e){
+    el.text=e.text!=null?e.text:'';
+    var n=0;(function fire(){if(el.isConnected){setTimeout(function(){el.dispatchEvent(new Event('load'))},0)}else if(n++<500){setTimeout(fire,10)}})();
+  }
+  var of=window.fetch;
+  if(of)window.fetch=function(input){var u=(typeof input==='string'||input instanceof URL)?String(input):(input&&input.url);var e=u&&res(u);
+    if(e)return Promise.resolve(new Response(e.blob,{status:200,statusText:'OK',headers:{'Content-Type':e.type}}));return of.apply(this,arguments)};
+  var XP=XMLHttpRequest.prototype,XO=XP.open,XS=XP.send,XH=XP.setRequestHeader,XG=XP.getResponseHeader,XA=XP.getAllResponseHeaders;
+  function def(o,k,v){Object.defineProperty(o,k,{value:v,configurable:true,writable:true})}
+  XP.open=function(m,u){this.__gc=res(u);if(this.__gc){this.__gcU=String(u);def(this,'readyState',1);return}return XO.apply(this,arguments)};
+  XP.setRequestHeader=function(){if(this.__gc)return;return XH.apply(this,arguments)};
+  XP.getResponseHeader=function(n){if(this.__gc)return /content-type/i.test(n)?this.__gc.type:null;return XG.apply(this,arguments)};
+  XP.getAllResponseHeaders=function(){if(this.__gc)return 'content-type: '+this.__gc.type+'\r\n';return XA.apply(this,arguments)};
+  XP.send=function(){var x=this,e=x.__gc;if(!e)return XS.apply(this,arguments);var rt=x.responseType||'';
+    var p=rt==='arraybuffer'?e.blob.arrayBuffer():rt==='blob'?Promise.resolve(e.blob):rt==='json'?e.blob.text().then(function(t){try{return JSON.parse(t)}catch(_){return null}}):
+      rt==='document'?e.blob.text().then(function(t){return new DOMParser().parseFromString(t,/xml/.test(e.type)?'application/xml':'text/html')}):e.blob.text();
+    p.then(function(v){var size=e.blob.size;def(x,'status',200);def(x,'statusText','OK');def(x,'response',v);def(x,'responseURL',x.__gcU);
+      if(rt===''||rt==='text')def(x,'responseText',v);if(rt==='document')def(x,'responseXML',v);
+      def(x,'readyState',4);x.dispatchEvent(new Event('readystatechange'));
+      x.dispatchEvent(new ProgressEvent('progress',{lengthComputable:true,loaded:size,total:size}));
+      x.dispatchEvent(new ProgressEvent('load',{lengthComputable:true,loaded:size,total:size}));
+      x.dispatchEvent(new ProgressEvent('loadend',{lengthComputable:true,loaded:size,total:size}))});
+  };
+  function patch(proto,prop,isScript){if(!proto)return;var d=Object.getOwnPropertyDescriptor(proto,prop);if(!d||!d.set)return;
+    Object.defineProperty(proto,prop,{configurable:true,enumerable:d.enumerable,get:d.get,set:function(v){var e=typeof v==='string'&&res(v);
+      if(e&&isScript){inlineScript(this,e);return}d.set.call(this,e?withHash(e,v):v)}})}
+  patch(window.HTMLImageElement&&HTMLImageElement.prototype,'src');
+  patch(window.HTMLMediaElement&&HTMLMediaElement.prototype,'src');
+  patch(window.HTMLMediaElement&&HTMLVideoElement.prototype,'poster');
+  patch(window.HTMLSourceElement&&HTMLSourceElement.prototype,'src');
+  patch(window.HTMLLinkElement&&HTMLLinkElement.prototype,'href');
+  patch(window.HTMLScriptElement&&HTMLScriptElement.prototype,'src',true);
+  var SA=Element.prototype.setAttribute;
+  Element.prototype.setAttribute=function(n,v){var ln=String(n).toLowerCase();
+    if((ln==='src'||ln==='href'||ln==='xlink:href'||ln==='poster')&&typeof v==='string'&&this.tagName.toLowerCase()!=='a'){var e=res(v);
+      if(e){if(ln==='src'&&this.tagName.toLowerCase()==='script'){inlineScript(this,e);return}return SA.call(this,n,withHash(e,v))}}
+    return SA.call(this,n,v)};
+  var OA=window.Audio;if(OA){var NA=function(u){var a=new OA();if(u!==undefined)a.src=u;return a};NA.prototype=OA.prototype;window.Audio=NA}
+  document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest('a[href]');if(!a)return;
+    var raw=a.getAttribute('href')||'',x;try{x=new URL(a.href)}catch(_){return}
+    if(x.hostname!=='gc.local'){if(!a.target)a.target='_blank';return}
+    ev.preventDefault();
+    if(raw.charAt(0)==='#'){var id=raw.slice(1),t=id&&(document.getElementById(id)||document.getElementsByName(id)[0]);if(t)t.scrollIntoView();else window.scrollTo(0,0);return}
+    var p=x.pathname.replace(/^\/+/,'');try{p=decodeURIComponent(p)}catch(_){}
+    if(/\.html?$/i.test(p)&&P.__gcGet(p))P.__gcOpen(p);
+  },true);
+}
+
+async function buildDoc(path){
+  const e=vfsGet(path),dir=dirOf(e.path);
+  const doc=new DOMParser().parseFromString(await e.blob.text(),'text/html');
+  const hadDoctype=!!doc.doctype;
+  doc.querySelectorAll('base').forEach(b=>b.remove());
+  for(const l of [...doc.querySelectorAll('link[href]')]){
+    if(!/(^|\s)stylesheet(\s|$)/i.test(l.getAttribute('rel')||''))continue;
+    const t=entry(dir,l.getAttribute('href'));if(!t)continue;
+    const s=doc.createElement('style');if(l.getAttribute('media'))s.setAttribute('media',l.getAttribute('media'));
+    s.textContent=await rewriteCss(await t.blob.text(),dirOf(t.path));s.dataset.gc='1';l.replaceWith(s);
+  }
+  for(const s of doc.querySelectorAll('style:not([data-gc])'))s.textContent=await rewriteCss(s.textContent,dir);
+  for(const el of doc.querySelectorAll('[style]'))el.setAttribute('style',await rewriteCss(el.getAttribute('style'),dir));
+  const deferred=[];
+  for(const sc of [...doc.querySelectorAll('script[src]')]){
+    const t=entry(dir,sc.getAttribute('src'));if(!t)continue;
+    const n=doc.createElement('script');
+    for(const a of sc.attributes)if(!['src','defer','async','integrity','crossorigin'].includes(a.name))n.setAttribute(a.name,a.value);
+    n.textContent=(t.text!=null?t.text:await t.blob.text()).replace(/<\/script/gi,'<\\/script');
+    if(sc.hasAttribute('defer')||(sc.getAttribute('type')||'').toLowerCase()==='module'){sc.remove();deferred.push(n)}else sc.replaceWith(n);
+  }
+  const pairs=[['img','src'],['source','src'],['audio','src'],['video','src'],['video','poster'],['track','src'],['input','src'],['embed','src'],['object','data'],
+    ['link','href'],['image','href'],['image','xlink:href'],['use','href'],['use','xlink:href'],['feImage','href']];
+  for(const [tag,attr] of pairs)for(const el of doc.getElementsByTagName(tag)){const v=el.getAttribute(attr);if(v==null)continue;const r=rewriteUrl(dir,v);if(r)el.setAttribute(attr,r)}
+  for(const el of doc.querySelectorAll('[srcset]'))el.setAttribute('srcset',el.getAttribute('srcset').split(',').map(part=>{
+    const bits=part.trim().split(/\s+/);const r=rewriteUrl(dir,bits[0]);if(r)bits[0]=r;return bits.join(' ')}).join(', '));
+  deferred.forEach(n=>doc.body.appendChild(n));
+  const head=doc.head;
+  const base=doc.createElement('base');base.setAttribute('href','https://gc.local/'+(dir?dir.split('/').map(encodeURIComponent).join('/')+'/':''));
+  const shim=doc.createElement('script');shim.textContent='('+gcShim.toString()+')();';
+  head.insertBefore(shim,head.firstChild);head.insertBefore(base,head.firstChild);
+  return (hadDoctype?'<!DOCTYPE html>\n':'')+doc.documentElement.outerHTML;
+}
+
+/* ---------- storage ---------- */
+const store={db:null,mem:[],
+  async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('game-case',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('games',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){this.db=null}},
+  tx(mode){return this.db.transaction('games',mode).objectStore('games')},
+  async all(){if(!this.db)return this.mem.slice();try{return await new Promise((res,rej)=>{const r=this.tx('readonly').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){return this.mem.slice()}},
+  async put(g){if(this.db){try{await new Promise((res,rej)=>{const r=this.tx('readwrite').put(g);r.onsuccess=res;r.onerror=()=>rej(r.error)});return true}catch(e){}}
+    this.mem=this.mem.filter(x=>x.id!==g.id);this.mem.push(g);return false},
+  async del(id){this.mem=this.mem.filter(x=>x.id!==id);if(this.db){try{await new Promise((res,rej)=>{const r=this.tx('readwrite').delete(id);r.onsuccess=res;r.onerror=()=>rej(r.error)})}catch(e){}}}
+};
+
+/* ---------- sample game ---------- */
+async function makeSample(){
+  const z=new JSZip();
+  z.file('star-catch/index.html',`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>별 줍기</title><link rel="stylesheet" href="style.css"></head><body><header><img src="img/star.svg" alt="">별 줍기<span id="score">0점</span></header><canvas id="c"></canvas><p class="tip">화면을 좌우로 끌어서 우주선을 움직이세요</p><script src="game.js"><\/script></body></html>`);
+  z.file('star-catch/style.css',`html,body{margin:0;height:100%;overflow:hidden;touch-action:none}body{background:#0d1a30 url("img/sky.svg") center/cover;color:#fff;font-family:system-ui,sans-serif}header{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:700;font-size:18px}header img{width:28px;height:28px}#score{margin-left:auto;font-variant-numeric:tabular-nums}canvas{display:block;width:100%;height:100%}.tip{position:absolute;bottom:18px;left:0;right:0;text-align:center;margin:0;font-size:14px;opacity:.75}`);
+  z.file('star-catch/game.js',`const c=document.getElementById('c'),x=c.getContext('2d'),sc=document.getElementById('score');
+const ship=new Image();ship.src='img/ship.svg';const star=new Image();star.src='img/star.svg';
+let W,H,D=window.devicePixelRatio||1;function fit(){W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;x.setTransform(D,0,0,D,0,0)}fit();addEventListener('resize',fit);
+let px=W/2,score=0,stars=[],last=0;
+function move(e){const t=e.touches?e.touches[0]:e;px=t.clientX}
+addEventListener('pointermove',move);addEventListener('pointerdown',move);addEventListener('touchmove',e=>{move(e);e.preventDefault()},{passive:false});
+function loop(t){if(t-last>650){stars.push({x:20+Math.random()*(W-40),y:-30,v:1.6+Math.random()*2.4,r:Math.random()*6});last=t}
+x.clearRect(0,0,W,H);const sy=H-110;
+for(let i=stars.length-1;i>=0;i--){const s=stars[i];s.y+=s.v;s.r+=.03;x.save();x.translate(s.x,s.y);x.rotate(s.r);x.drawImage(star,-16,-16,32,32);x.restore();
+if(Math.abs(s.x-px)<34&&Math.abs(s.y-sy)<30){stars.splice(i,1);score++;sc.textContent=score+'점'}else if(s.y>H+40)stars.splice(i,1)}
+x.drawImage(ship,px-28,sy-28,56,56);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);`);
+  z.file('star-catch/img/star.svg',`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M16 2l4.2 8.7 9.5 1.3-6.9 6.6 1.7 9.4L16 23.6 7.5 28l1.7-9.4L2.3 12l9.5-1.3z" fill="#FFD23F" stroke="#E89B00" stroke-width="1.5" stroke-linejoin="round"/></svg>`);
+  z.file('star-catch/img/ship.svg',`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><path d="M28 4c7 8 10 18 10 30l8 10H10l8-10c0-12 3-22 10-30z" fill="#E9EEF7"/><circle cx="28" cy="24" r="6" fill="#3FA9F5" stroke="#1B4F8A" stroke-width="2"/><path d="M22 44h12l-6 10z" fill="#FF6B52"/><path d="M10 44l8-10v10zM46 44l-8-10v10z" fill="#D9472F"/></svg>`);
+  let dots='';for(let i=0;i<60;i++)dots+=`<circle cx="${(i*137)%400}" cy="${(i*89)%700}" r="${(i%3)*.6+.6}" fill="#fff" opacity="${.3+(i%5)*.12}"/>`;
+  z.file('star-catch/img/sky.svg',`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1630"/><stop offset="1" stop-color="#2a1d4f"/></linearGradient></defs><rect width="400" height="700" fill="url(#g)"/>${dots}</svg>`);
+  const blob=await z.generateAsync({type:'blob',compression:'STORE'});
+  return {id:'sample',name:'별 줍기',file:'샘플 게임',size:blob.size,added:0,blob,sample:true};
+}
+
+/* ---------- UI ---------- */
+let games=[],sample=null,current=null,freshId=null,toastTimer;
+const fmt=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(n<10240?1:0)+' KB':(n/1048576).toFixed(1)+' MB';
+const colorFor=id=>{let h=0;for(const ch of id)h=(h*31+ch.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]};
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,3200)}
+function busy(on){$('#busy').hidden=!on}
+
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function render(){
+  const list=[...games].sort((a,b)=>b.added-a.added);if(sample)list.push(sample);
+  const shelf=$('#shelf');shelf.replaceChildren();
+  for(const g of list){
+    const card=el('div','cart'+(g.id===freshId?' fresh':''));card.style.setProperty('--c',g.sample?'#2F6FD9':colorFor(g.id));
+    const play=el('button','play');play.type='button';play.setAttribute('aria-label',g.name+' 실행');
+    const shell=el('span','shell');const st=el('span','sticker');
+    st.append(el('span','initial',Array.from(g.name.trim())[0]||'?'),el('span','kind',g.sample?'sample':'html game'));
+    shell.append(st);play.append(shell);play.onclick=()=>playGame(g);
+    const meta=el('div','meta');const left=el('div');left.style.minWidth='0';
+    left.append(el('span','name',g.name),el('span','info',(g.sample?'샘플 · ':'')+fmt(g.size)));meta.append(left);
+    if(!g.sample){const d=el('button','del','삭제');d.type='button';d.setAttribute('aria-label',g.name+' 삭제');
+      d.onclick=async()=>{if(!d.classList.contains('armed')){d.classList.add('armed');d.textContent='정말 삭제';setTimeout(()=>{d.classList.remove('armed');d.textContent='삭제'},3000);return}
+        await store.del(g.id);games=games.filter(x=>x.id!==g.id);render();toast(g.name+' 삭제함')};meta.append(d)}
+    card.append(play,meta);shelf.append(card);
+  }
+  $('#count').textContent=games.length+'개 보관 중';
+  freshId=null;
+}
+
+async function addGame(blob,fileName){
+  busy(true);let v;
+  try{v=await zipToVFS(blob)}catch(e){busy(false);toast('zip 파일을 열 수 없어요. 압축이 깨지지 않았는지 확인해 주세요.');return}
+  if(!v.entry){freeVFS(v);busy(false);toast('zip 안에 .html 파일이 없어요. 게임 폴더를 통째로 압축해 주세요.');return}
+  let name=fileName.replace(/\.zip$/i,'');
+  try{const d=new DOMParser().parseFromString(await v.map.get(v.entry).blob.text(),'text/html');const t=(d.title||'').trim();if(t)name=t}catch(e){}
+  freeVFS(v);
+  const g={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:name.slice(0,60),file:fileName,size:blob.size,added:Date.now(),blob};
+  const saved=await store.put(g);games.push(g);freshId=g.id;busy(false);render();
+  toast(saved?name+' 추가함':name+' 추가함. 이 브라우저에 저장할 수 없어 창을 닫으면 사라져요.');
+}
+
+async function playGame(g){
+  busy(true);
+  try{
+    const v=await zipToVFS(g.blob);if(!v.entry)throw new Error('no html');
+    freeVFS(VFS);VFS=v;current=g;
+    $('#frame').srcdoc=await buildDoc(v.entry);
+    $('#ptitle').textContent=g.name;$('#player').hidden=false;document.body.classList.add('playing');
+  }catch(e){toast('게임을 열지 못했어요. 파일이 손상됐을 수 있어요.')}
+  busy(false);
+}
+window.__gcOpen=async p=>{try{$('#frame').srcdoc=await buildDoc(p)}catch(e){toast('페이지를 열지 못했어요.')}};
+function closePlayer(){$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
+$('#back').onclick=closePlayer;
+$('#reload').onclick=async()=>{if(VFS&&VFS.entry)$('#frame').srcdoc=await buildDoc(VFS.entry)};
+
+$('#zipIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)await addGame(f,f.name)};
+$('#dirIn').onchange=async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  if(files.length===1&&/\.zip$/i.test(files[0].name))return addGame(files[0],files[0].name);
+  busy(true);const z=new JSZip();
+  for(const f of files)z.file(f.webkitRelativePath||f.name,f);
+  const top=(files[0].webkitRelativePath||'').split('/')[0]||'게임';
+  const blob=await z.generateAsync({type:'blob',compression:'STORE'});busy(false);
+  await addGame(blob,top);
+};
+
+(async function init(){
+  if(typeof JSZip==='undefined'){toast('압축 해제 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.');return}
+  await store.open();
+  try{games=await store.all()}catch(e){games=[]}
+  try{sample=await makeSample()}catch(e){sample=null}
+  render();
+})();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+</script>
+</body>
+</html>

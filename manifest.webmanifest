@@ -1,0 +1,16 @@
+{
+  "name": "게임 케이스",
+  "short_name": "게임 케이스",
+  "description": "zip으로 묶은 HTML 게임을 이미지·사운드까지 그대로 실행하는 보관함",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ECEEF3",
+  "theme_color": "#1B2030",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
