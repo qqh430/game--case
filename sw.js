@@ -1,5 +1,5 @@
 // 게임 케이스 오프라인 캐시: 앱 화면 파일만 저장하고, 게임 파일 요청은 건드리지 않습니다.
-const CACHE = 'game-case-v7';
+const CACHE = 'game-case-v8';
 const SHELL = ['./', 'index.html', 'jszip.min.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'favicon.png'];
 
 self.addEventListener('install', e => {

@@ -100,6 +100,50 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
 #diag .diag-actions{display:flex;gap:8px}
 #diag .diag-actions button{flex:1;font:inherit;font-weight:700;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:9px;cursor:pointer}
 #diag .diag-actions button:first-child{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+#trToggle[aria-pressed="true"]{background:var(--accent)!important;border-color:var(--accent)!important;color:var(--accent-ink)!important}
+#menuBtn{min-width:40px;letter-spacing:.05em}
+.menu{position:absolute;right:10px;top:calc(52px + env(safe-area-inset-top,0px));z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.28);display:flex;flex-direction:column;padding:6px;min-width:210px}
+.menu button{font:inherit;text-align:left;border:0;background:transparent;cursor:pointer;padding:11px 12px;border-radius:8px;font-weight:700;color:var(--ink)}
+.menu button:hover,.menu button:focus-visible{background:var(--bg);outline:none}
+.panel{position:absolute;left:0;right:0;bottom:0;top:calc(52px + env(safe-area-inset-top,0px));z-index:3;background:var(--surface);color:var(--ink);overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:4;max-height:80%;overflow:auto;background:var(--surface);color:var(--ink);border-radius:16px 16px 0 0;box-shadow:0 -12px 30px rgba(0,0,0,.28);padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.p-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.p-head strong{font-size:1.05rem}
+.btn{font:inherit;font-weight:700;font-size:.9rem;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:9px 12px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:4px 10px;font-size:.8rem;flex:none}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld>span{font-size:.8rem;color:var(--muted);font-weight:600}
+.fld input,.fld select,.fld textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.fld textarea{resize:vertical;line-height:1.5}
+.srcbox{font-size:.9rem;line-height:1.5;color:var(--muted);background:var(--bg);border-radius:8px;padding:9px 10px;max-height:6.5em;overflow:auto;overflow-wrap:anywhere}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-size:.88rem;font-weight:700;cursor:pointer}
+.seg input{accent-color:var(--accent);margin:0}
+.seg label:has(input:checked){border-color:var(--accent);color:var(--accent)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .btn{flex:1 1 auto}
+.sec h4{margin:0 0 8px;font-size:.92rem;font-weight:800}
+.rules{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rule{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:.9rem}
+.rule:first-child{border-top:0}
+.rule .rt{flex:1;min-width:0;overflow-wrap:anywhere}
+.rule .rt small{display:block;color:var(--muted);font-size:.75rem;margin-top:2px}
+.empty{color:var(--muted);font-size:.86rem;padding:10px 12px}
+.note{font-size:.8rem;line-height:1.5;color:var(--muted);margin:0}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800}
+.switch input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+#trSel{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2;display:flex;gap:6px;align-items:center;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 6px 6px 14px;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+#trSel span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.85rem;min-width:0}
+#trSel button{flex:none;font:inherit;font-weight:800;font-size:.85rem;border:0;border-radius:999px;padding:7px 12px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+#trSel button.x{background:transparent;color:var(--bg);padding:7px 9px}
+#trMode{position:absolute;left:0;right:0;top:calc(52px + env(safe-area-inset-top,0px));z-index:2;display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--accent);color:var(--accent-ink);font-size:.85rem;font-weight:700}
+#trMode span{flex:1;min-width:0}
+#trMode button{font:inherit;font-weight:800;border:1.5px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:4px 10px;cursor:pointer;flex:none}
+#trStatus{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:.78rem;font-weight:700;max-width:calc(100% - 24px);text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#trStatus.err{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 #ptitle{flex:1;min-width:0;text-align:center;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #frame{flex:1;width:100%;border:0;background:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-reduced-motion:reduce){.shell,.cart.fresh .shell{transition:none;animation:none}}
@@ -155,6 +199,12 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
   <div class="bar">
     <button id="back" type="button">← 보관함</button>
     <span id="ptitle"></span>
+    <button id="trToggle" type="button" aria-pressed="false">번역</button>
+    <button id="menuBtn" type="button" aria-label="메뉴" aria-expanded="false">⋯</button>
+  </div>
+  <div id="menu" class="menu" hidden>
+    <button id="mTrSet" type="button">번역 설정 · 단어장</button>
+    <button id="mEditMode" type="button">뜻 바꾸기 모드 켜기</button>
     <button id="diagBtn" type="button">진단</button>
     <button id="reload" type="button">다시 시작</button>
   </div>
@@ -163,6 +213,40 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
     <textarea id="diagText" readonly spellcheck="false" aria-label="진단 내용"></textarea>
     <div class="diag-actions"><button id="diagCopy" type="button">복사</button><button id="diagRefresh" type="button">새로 보기</button><button id="diagClose" type="button">닫기</button></div>
   </div>
+  <div id="trSet" class="panel" hidden>
+    <div class="p-head"><strong>번역 설정 · 단어장</strong><button class="btn small" id="trSetClose" type="button">닫기</button></div>
+    <label class="switch" for="trOn"><span>영어를 한국어로 자동 번역</span><input id="trOn" type="checkbox"></label>
+    <label class="fld"><span>번역 엔진</span>
+      <select id="trEngine">
+        <option value="auto">자동 (Google, 안 되면 Microsoft)</option>
+        <option value="google">Google 번역</option>
+        <option value="microsoft">Microsoft 번역</option>
+        <option value="cloud">Google Cloud (내 API 키)</option>
+      </select></label>
+    <label class="fld" id="trKeyRow" hidden><span>Google Cloud API 키</span><input id="trKey" type="text" autocomplete="off" spellcheck="false" placeholder="AIza로 시작하는 키"></label>
+    <p class="note">번역하려면 화면의 게임 글자가 고른 번역 서버로 보내져요. 한 번 번역한 문장은 이 기기에 저장해 두고 다시 보내지 않아요.</p>
+    <div class="sec"><h4>모든 번역에 적용</h4><div class="rules" id="ruleGlobal"></div></div>
+    <div class="sec"><h4>특정 문장에만 적용</h4><div class="rules" id="ruleLocal"></div></div>
+    <div class="sec"><h4>상태</h4><p class="note" id="trInfo"></p></div>
+    <div class="acts"><button class="btn" id="trClearCache" type="button">저장된 번역 지우기</button></div>
+  </div>
+  <div id="trEdit" class="sheet" role="dialog" aria-label="뜻 바꾸기" hidden>
+    <div class="p-head"><strong>뜻 바꾸기</strong><button class="btn small" id="trEditClose" type="button">닫기</button></div>
+    <div class="fld"><span>원문</span><div class="srcbox" id="trSrc"></div></div>
+    <label class="fld"><span>번역 · 바꿀 부분을 길게 눌러 선택하세요</span><textarea id="trKo" rows="3"></textarea></label>
+    <div class="two">
+      <label class="fld"><span>바꿀 말</span><input id="trFrom" type="text" autocomplete="off"></label>
+      <label class="fld"><span>원하는 뜻</span><input id="trTo" type="text" autocomplete="off"></label>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="적용 범위">
+      <label><input type="radio" id="trScopeG" name="trScope" value="global" checked>모든 번역에서</label>
+      <label><input type="radio" id="trScopeL" name="trScope" value="local">이 문장에서만</label>
+    </div>
+    <div class="acts"><button class="btn primary" id="trApply" type="button">바꾸기</button><button class="btn" id="trFix" type="button">문장 전체를 위 번역으로 고정</button></div>
+  </div>
+  <div id="trSel" hidden><span id="trSelText"></span><button id="trSelGo" type="button">뜻 바꾸기</button><button class="x" id="trSelX" type="button" aria-label="선택 닫기">✕</button></div>
+  <div id="trMode" hidden><span>뜻 바꾸기 모드 · 바꿀 문장을 누르세요</span><button id="trModeEnd" type="button">끝내기</button></div>
+  <button id="trStatus" type="button" hidden></button>
   <iframe id="frame" title="게임 화면" allow="autoplay; fullscreen; gamepad; accelerometer; gyroscope"></iframe>
 </div>
 <div id="busy" hidden>게임을 여는 중…</div>
@@ -421,8 +505,8 @@ async function buildDoc(path){
 
 /* ---------- storage ---------- */
 const store={db:null,mem:[],
-  async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('game-case',1);
-    r.onupgradeneeded=()=>r.result.createObjectStore('games',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){this.db=null}},
+  async open(){try{this.db=await new Promise((res,rej)=>{const r=indexedDB.open('game-case',2);
+    r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('games'))db.createObjectStore('games',{keyPath:'id'});if(!db.objectStoreNames.contains('tcache'))db.createObjectStore('tcache')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){this.db=null}},
   tx(mode){return this.db.transaction('games',mode).objectStore('games')},
   async all(){if(!this.db)return this.mem.slice();try{return await new Promise((res,rej)=>{const r=this.tx('readonly').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}catch(e){return this.mem.slice()}},
   async put(g){if(this.db){try{await new Promise((res,rej)=>{const r=this.tx('readwrite').put(g);r.onsuccess=res;r.onerror=()=>rej(r.error)});return true}catch(e){}}
@@ -514,13 +598,14 @@ function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
   const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()};
   const out=[];
-  out.push('앱 버전: 7 (이미지 방식 기억)');
+  out.push('앱 버전: 8 (번역 기능)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
   out.push('zip에서 찾아 연결한 요청: '+L.hit+'번');
   out.push('이미지·사운드 주소 지정: '+L.set+'번');
   out.push('이미지 연결 방식: '+(L.meth||'아직 없음'));
+  out.push('번역: '+(TR.on?'켬':'끔')+' · 엔진 '+(ENAME[TR.stats.engine]||ENAME[TR.working]||'아직 없음')+' · 번역 '+TR.stats.count+'문장 · 실패 '+TR.stats.fail+'번'+(TR.stats.err?' · 마지막 오류 '+TR.stats.err:''));
   if(L.mfail.size)out.push('방식별 실패: '+[...L.mfail].map(([k,c])=>k+' '+c+'번').join(', '));
   const near=p=>{const base=p.split('/').pop().toLowerCase();return paths.filter(x=>x.toLowerCase().endsWith('/'+base)||x.toLowerCase()===base).slice(0,3)};
   out.push('','[zip에서 못 찾은 경로] '+L.miss.size+'개');
@@ -536,10 +621,11 @@ function diagText(){
 }
 function openDiag(){$('#diagText').value=diagText();$('#diag').hidden=false}
 window.__gcOpen=async p=>{try{$('#frame').srcdoc=await buildDoc(p)}catch(e){toast('페이지를 열지 못했어요.')}};
-function closePlayer(){$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
+function closePlayer(){['#trEdit','#trSet','#menu','#diag'].forEach(x=>$(x).hidden=true);hideSel();setEdit(false);trStatus('');$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
 $('#back').onclick=closePlayer;
 $('#reload').onclick=async()=>{if(VFS&&VFS.entry){resetLog();$('#frame').srcdoc=await buildDoc(VFS.entry)}};
 $('#diagBtn').onclick=openDiag;
+$('#menu').addEventListener('click',e=>{if(e.target.closest('button')){$('#menu').hidden=true;$('#menuBtn').setAttribute('aria-expanded','false')}});
 $('#diagClose').onclick=()=>{$('#diag').hidden=true};
 $('#diagRefresh').onclick=openDiag;
 $('#diagCopy').onclick=async()=>{const t=$('#diagText');try{await navigator.clipboard.writeText(t.value);toast('진단 내용을 복사했어요')}catch(e){t.focus();t.select();toast('글자를 길게 눌러 복사해 주세요')}};
@@ -555,9 +641,220 @@ $('#dirIn').onchange=async e=>{
   await addGame(blob,top);
 };
 
+/* ---------- 번역 ---------- */
+const TR={on:false,engine:'auto',key:'',working:null,mem:new Map(),orig:new WeakMap(),shown:new WeakMap(),nodes:new Set(),pending:new Set(),timer:0,obs:null,edit:false,
+  stats:{req:0,fail:0,engine:'',err:'',count:0}};
+const RULES={global:[],local:{},full:{}};
+const ENAME={google:'Google 번역',microsoft:'Microsoft 번역',cloud:'Google Cloud'};
+try{const o=JSON.parse(localStorage.getItem('gc-tr')||'{}');TR.on=!!o.on;TR.engine=o.engine||'auto';TR.key=o.key||'';TR.working=o.working||null}catch(e){}
+try{const r=JSON.parse(localStorage.getItem('gc-rules')||'{}');RULES.global=Array.isArray(r.global)?r.global:[];RULES.local=r.local&&typeof r.local==='object'?r.local:{};RULES.full=r.full&&typeof r.full==='object'?r.full:{}}catch(e){}
+const saveTR=()=>{try{localStorage.setItem('gc-tr',JSON.stringify({on:TR.on,engine:TR.engine,key:TR.key,working:TR.working}))}catch(e){}};
+const saveRules=()=>{try{localStorage.setItem('gc-rules',JSON.stringify(RULES))}catch(e){toast('단어장을 저장하지 못했어요')}};
+
+const TSKIP=/^(script|style|textarea|noscript|code|pre|input|select|option|svg|math|title|template)$/i;
+function eligible(n){
+  if(!n||n.nodeType!==3)return false;const v=n.nodeValue;if(!v||!/[A-Za-z]{2}/.test(v))return false;
+  for(let p=n.parentNode;p&&p.nodeType===1;p=p.parentNode){
+    if(TSKIP.test(p.tagName)||p.isContentEditable||p.getAttribute('translate')==='no'||(p.classList&&p.classList.contains('notranslate')))return false}
+  return true;
+}
+const splitWS=s=>{const m=/^(\s*)([\s\S]*?)(\s*)$/.exec(s||'');return [m[1],m[2],m[3]]};
+function enqueue(n){const cur=n.nodeValue;if(TR.shown.get(n)===cur)return;TR.orig.set(n,cur);TR.pending.add(n);clearTimeout(TR.timer);TR.timer=setTimeout(flush,60)}
+function collect(root){const out=[];if(!root)return out;
+  if(root.nodeType===3){if(eligible(root))out.push(root);return out}
+  if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return out;
+  const d=root.ownerDocument||root,w=d.createTreeWalker(root,4);let n;while((n=w.nextNode()))if(eligible(n))out.push(n);return out}
+function display(src,ko){
+  if(Object.prototype.hasOwnProperty.call(RULES.full,src))return RULES.full[src];
+  let t=ko;const loc=RULES.local[src];if(loc)for(const r of loc)if(r.from)t=t.split(r.from).join(r.to);
+  for(const r of RULES.global)if(r.from)t=t.split(r.from).join(r.to);
+  return t;
+}
+function show(n){if(!TR.on||!n.isConnected)return;const o=TR.orig.get(n);if(o==null)return;const [a,src,b]=splitWS(o);const ko=TR.mem.get(src);if(ko==null)return;
+  const v=a+display(src,ko)+b;TR.shown.set(n,v);TR.nodes.add(n);if(n.nodeValue!==v)n.nodeValue=v}
+function refreshAll(){for(const n of TR.nodes){if(!n.isConnected){TR.nodes.delete(n);continue}show(n)}}
+function restoreAll(){for(const n of TR.nodes){if(n.isConnected&&TR.shown.get(n)===n.nodeValue){const o=TR.orig.get(n);if(o!=null)n.nodeValue=o}TR.shown.delete(n)}TR.nodes.clear()}
+const isShown=n=>n&&n.nodeType===3&&TR.shown.get(n)===n.nodeValue;
+
+/* 번역 저장소 (이 기기에 보관) */
+function tcGet(keys){if(!store.db||!keys.length)return Promise.resolve(keys.map(()=>null));
+  return new Promise(res=>{try{const os=store.db.transaction('tcache','readonly').objectStore('tcache');const out=keys.map(()=>null);let left=keys.length;
+    keys.forEach((k,i)=>{const r=os.get(k);r.onsuccess=()=>{if(typeof r.result==='string')out[i]=r.result;if(--left===0)res(out)};r.onerror=()=>{if(--left===0)res(out)}})}catch(e){res(keys.map(()=>null))}})}
+function tcPut(pairs){if(!store.db||!pairs.length)return;try{const os=store.db.transaction('tcache','readwrite').objectStore('tcache');for(const [k,v] of pairs)os.put(v,k)}catch(e){}}
+function tcClear(){TR.mem.clear();if(!store.db)return;try{store.db.transaction('tcache','readwrite').objectStore('tcache').clear()}catch(e){}}
+
+/* 번역 엔진 */
+async function gTranslate(list){
+  const url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q='+encodeURIComponent(list.join('\n'));
+  const r=await fetch(url);if(!r.ok)throw new Error('Google '+r.status);
+  const j=await r.json();const full=(j&&j[0]||[]).map(x=>x&&x[0]||'').join('');
+  const parts=full.split('\n');
+  if(parts.length===list.length)return parts.map(p=>p.trim());
+  if(list.length===1)return [full.trim()];
+  const out=[];for(const s of list)out.push((await gTranslate([s]))[0]);return out;
+}
+let msTok=null,msExp=0;
+async function msTranslate(list){
+  if(!msTok||Date.now()>msExp){const a=await fetch('https://edge.microsoft.com/translate/auth');if(!a.ok)throw new Error('Microsoft 인증 '+a.status);msTok=await a.text();msExp=Date.now()+8*60*1000}
+  const r=await fetch('https://api-edge.cognitive.microsofttranslator.com/translate?from=en&to=ko&api-version=3.0',
+    {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+msTok},body:JSON.stringify(list.map(s=>({Text:s})))});
+  if(r.status===401){msTok=null}
+  if(!r.ok)throw new Error('Microsoft '+r.status);
+  const j=await r.json();return j.map(x=>x&&x.translations&&x.translations[0]?x.translations[0].text:null);
+}
+async function gcTranslate(list){
+  if(!TR.key)throw new Error('Google Cloud API 키를 입력해 주세요');
+  const r=await fetch('https://translation.googleapis.com/language/translate/v2?key='+encodeURIComponent(TR.key),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:list,source:'en',target:'ko',format:'text'})});
+  if(!r.ok){let m=r.status;try{m=(await r.json()).error.message}catch(e){}throw new Error('Google Cloud '+m)}
+  const j=await r.json();return j.data.translations.map(x=>x.translatedText);
+}
+const ENG={google:gTranslate,microsoft:msTranslate,cloud:gcTranslate};
+async function translateBatch(list){
+  const prep=list.map(s=>s.replace(/\s*\n\s*/g,' '));TR.stats.req++;
+  if(TR.engine!=='auto'){const out=await ENG[TR.engine](prep);TR.stats.engine=TR.engine;return out}
+  const order=TR.working&&TR.working!=='cloud'?[TR.working,...['google','microsoft'].filter(x=>x!==TR.working)]:['google','microsoft'];
+  let last;
+  for(const name of order){try{const out=await ENG[name](prep);if(TR.working!==name){TR.working=name;saveTR()}TR.stats.engine=name;return out}catch(e){last=e}}
+  throw last;
+}
+function batches(list){const out=[];let cur=[],len=0;
+  for(const s of list){if(cur.length&&(len+s.length>1800||cur.length>=40)){out.push(cur);cur=[];len=0}cur.push(s);len+=s.length+1}
+  if(cur.length)out.push(cur);return out}
+
+let stTimer=0,inflight=0;
+function trStatus(msg,err){const b=$('#trStatus');clearTimeout(stTimer);if(!msg){b.hidden=true;return}b.textContent=msg;b.classList.toggle('err',!!err);b.hidden=false}
+async function flush(){
+  if(!TR.on){TR.pending.clear();return}
+  const nodes=[...TR.pending];TR.pending.clear();
+  const need=new Map();
+  for(const n of nodes){if(!n.isConnected)continue;const src=splitWS(TR.orig.get(n))[1];if(!src||!/[A-Za-z]{2}/.test(src))continue;
+    if(!need.has(src))need.set(src,[]);need.get(src).push(n)}
+  if(!need.size)return;
+  const unknown=[...need.keys()].filter(s=>!TR.mem.has(s));
+  if(unknown.length){const got=await tcGet(unknown);got.forEach((v,i)=>{if(v!=null)TR.mem.set(unknown[i],v)})}
+  for(const [s,ns] of need)if(TR.mem.has(s))ns.forEach(show);
+  const todo=[...need.keys()].filter(s=>!TR.mem.has(s));if(!todo.length)return;
+  inflight++;trStatus('번역 중… '+todo.length+'문장');
+  try{
+    for(const b of batches(todo)){
+      const out=await translateBatch(b);const save=[];
+      b.forEach((s,i)=>{const v=out[i];if(typeof v==='string'&&v){TR.mem.set(s,v);save.push([s,v]);TR.stats.count++;need.get(s).forEach(show)}});
+      tcPut(save);
+    }
+    if(--inflight<=0){inflight=0;trStatus('')}
+  }catch(err){
+    inflight=Math.max(0,inflight-1);TR.stats.fail++;
+    const m=String(err&&err.message||err);TR.stats.err=/load failed|failed to fetch|networkerror/i.test(m)?'번역 서버에 연결할 수 없음':m;
+    trStatus('번역하지 못했어요 · '+TR.stats.err+' · 눌러서 설정',true);
+  }
+}
+function trDetach(){if(TR.obs){TR.obs.disconnect();TR.obs=null}TR.pending.clear()}
+function frameDoc(){try{const d=$('#frame').contentDocument;return d&&d.documentElement?d:null}catch(e){return null}}
+function trAttach(){
+  trDetach();const d=frameDoc();if(!d)return;
+  TR.obs=new MutationObserver(list=>{if(!TR.on)return;
+    for(const r of list){if(r.type==='characterData'){const n=r.target;if(TR.shown.get(n)!==n.nodeValue&&eligible(n))enqueue(n)}
+      else r.addedNodes.forEach(a=>collect(a).forEach(enqueue))}});
+  TR.obs.observe(d.documentElement,{childList:true,subtree:true,characterData:true});
+  if(d.body)collect(d.body).forEach(enqueue);
+  applySelStyle(d);
+}
+/* 게임이 글자 선택을 막아 두었어도, 번역 중에는 선택할 수 있게 한다 */
+function applySelStyle(d){if(!d)return;try{let s=d.getElementById('gc-sel-style');
+  if(TR.on){if(!s){s=d.createElement('style');s.id='gc-sel-style';s.textContent='body,body *{-webkit-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important}';(d.head||d.documentElement).appendChild(s)}}
+  else if(s)s.remove()}catch(e){}}
+
+function setTrOn(on){
+  TR.on=on;saveTR();const t=$('#trToggle');t.setAttribute('aria-pressed',String(on));t.textContent=on?'번역 켬':'번역';$('#trOn').checked=on;
+  if(on)trAttach();else{trDetach();restoreAll();hideSel();setEdit(false);trStatus('');applySelStyle(frameDoc())}
+}
+function setEdit(on){TR.edit=on;$('#trMode').hidden=!on;$('#mEditMode').textContent=on?'뜻 바꾸기 모드 끄기':'뜻 바꾸기 모드 켜기'}
+
+/* 선택한 번역 글자 → 뜻 바꾸기 */
+let selNode=null,selText='',selHide=0;
+function hideSel(){clearTimeout(selHide);$('#trSel').hidden=true;selNode=null;selText=''}
+function onSel(d){
+  if(!TR.on)return;const s=d.getSelection&&d.getSelection();const t=s?String(s).replace(/\s+/g,' ').trim():'';
+  let n=null;if(t&&t.length<=80){if(isShown(s.anchorNode))n=s.anchorNode;else if(isShown(s.focusNode))n=s.focusNode}
+  if(!n){clearTimeout(selHide);selHide=setTimeout(()=>{$('#trSel').hidden=true},600);return}
+  clearTimeout(selHide);selNode=n;selText=t;$('#trSelText').textContent='“'+t+'”';$('#trSel').hidden=false;
+}
+function nodeAt(d,ev){
+  let n=null;
+  try{if(d.caretRangeFromPoint){const r=d.caretRangeFromPoint(ev.clientX,ev.clientY);n=r&&r.startContainer}
+    else if(d.caretPositionFromPoint){const p=d.caretPositionFromPoint(ev.clientX,ev.clientY);n=p&&p.offsetNode}}catch(e){}
+  if(isShown(n))return n;
+  const t=ev.target;if(t&&t.nodeType===1){const w=d.createTreeWalker(t,4);let x;while((x=w.nextNode()))if(isShown(x))return x}
+  return null;
+}
+function hookFrame(){
+  const d=frameDoc();if(!d||d.__gcHooked)return;d.__gcHooked=1;
+  d.addEventListener('selectionchange',()=>onSel(d));
+  d.addEventListener('click',ev=>{if(!TR.edit)return;ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();
+    const n=nodeAt(d,ev);if(n)openEditor(n,'');else toast('번역된 글자를 눌러 주세요')},true);
+}
+let edNode=null,edSrc='';
+function openEditor(n,pre){
+  edNode=n;edSrc=splitWS(TR.orig.get(n))[1];
+  $('#trSrc').textContent=edSrc;$('#trKo').value=splitWS(TR.shown.get(n)||n.nodeValue)[1];
+  $('#trFrom').value=pre||'';$('#trTo').value='';$('#trScopeG').checked=true;
+  $('#menu').hidden=true;$('#trEdit').hidden=false;if(pre)setTimeout(()=>$('#trTo').focus(),60);
+}
+function syncFromSel(){const ta=$('#trKo'),a=ta.selectionStart,b=ta.selectionEnd;if(b>a)$('#trFrom').value=ta.value.slice(a,b).trim()}
+['select','mouseup','touchend','keyup'].forEach(ev=>$('#trKo').addEventListener(ev,()=>setTimeout(syncFromSel,0)));
+document.addEventListener('selectionchange',()=>{if(document.activeElement===$('#trKo'))syncFromSel()});
+$('#trApply').onclick=()=>{
+  const from=$('#trFrom').value.trim(),to=$('#trTo').value.trim();
+  if(!from){toast('바꿀 말을 입력하거나, 번역 칸에서 길게 눌러 선택해 주세요');return}
+  if(!edSrc)return;
+  const global=$('#trScopeG').checked;
+  if(global){RULES.global=RULES.global.filter(r=>r.from!==from);RULES.global.push({from,to})}
+  else{const l=(RULES.local[edSrc]||[]).filter(r=>r.from!==from);l.push({from,to});RULES.local[edSrc]=l}
+  saveRules();refreshAll();
+  if(edNode)$('#trKo').value=splitWS(TR.shown.get(edNode)||$('#trKo').value)[1];
+  $('#trFrom').value='';$('#trTo').value='';
+  toast(`‘${from}’ → ‘${to||'(지움)'}’ 저장했어요`+(global?' · 모든 번역':' · 이 문장만'));
+};
+$('#trFix').onclick=()=>{if(!edSrc)return;RULES.full[edSrc]=$('#trKo').value;saveRules();refreshAll();toast('이 문장 번역을 고정했어요')};
+$('#trEditClose').onclick=()=>{$('#trEdit').hidden=true};
+$('#trSelGo').onclick=()=>{const n=selNode,t=selText;hideSel();if(n&&n.isConnected)openEditor(n,t)};
+$('#trSelX').onclick=hideSel;
+
+/* 설정 · 단어장 */
+function ruleRow(text,sub,onDel){const row=el('div','rule'),t=el('div','rt',text);if(sub)t.append(el('small',null,sub));
+  const d=el('button','btn small','삭제');d.type='button';d.onclick=onDel;row.append(t,d);return row}
+const cut=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
+function renderRules(){
+  const g=$('#ruleGlobal');g.replaceChildren();
+  if(!RULES.global.length)g.append(el('div','empty','아직 없어요. 번역된 글자를 길게 눌러 선택하면 추가할 수 있어요.'));
+  RULES.global.forEach((r,i)=>g.append(ruleRow(`${r.from} → ${r.to||'(지움)'}`,'',()=>{RULES.global.splice(i,1);saveRules();refreshAll();renderRules()})));
+  const L=$('#ruleLocal');L.replaceChildren();let any=false;
+  for(const [src,list] of Object.entries(RULES.local))list.forEach((r,i)=>{any=true;
+    L.append(ruleRow(`${r.from} → ${r.to||'(지움)'}`,cut(src,70),()=>{list.splice(i,1);if(!list.length)delete RULES.local[src];saveRules();refreshAll();renderRules()}))});
+  for(const [src,v] of Object.entries(RULES.full)){any=true;
+    L.append(ruleRow('문장 고정: '+cut(v,40),cut(src,70),()=>{delete RULES.full[src];saveRules();refreshAll();renderRules()}))}
+  if(!any)L.append(el('div','empty','아직 없어요.'));
+  $('#trInfo').textContent=`엔진: ${ENAME[TR.stats.engine]||ENAME[TR.working]||'아직 사용 안 함'} · 이번 실행에서 번역한 문장 ${TR.stats.count}개 · 요청 ${TR.stats.req}번 · 실패 ${TR.stats.fail}번`+(TR.stats.err?` · 마지막 오류: ${TR.stats.err}`:'');
+}
+function openTrSet(){$('#trOn').checked=TR.on;$('#trEngine').value=TR.engine;$('#trKey').value=TR.key;$('#trKeyRow').hidden=TR.engine!=='cloud';renderRules();$('#trSet').hidden=false}
+$('#trToggle').onclick=()=>setTrOn(!TR.on);
+$('#trOn').onchange=e=>setTrOn(e.target.checked);
+$('#trEngine').onchange=e=>{TR.engine=e.target.value;$('#trKeyRow').hidden=TR.engine!=='cloud';TR.stats.err='';saveTR();if(TR.on)trAttach()};
+$('#trKey').onchange=e=>{TR.key=e.target.value.trim();saveTR();if(TR.on)trAttach()};
+$('#trSetClose').onclick=()=>{$('#trSet').hidden=true};
+$('#trClearCache').onclick=()=>{tcClear();toast('저장된 번역을 지웠어요. 다음 화면부터 새로 번역해요')};
+$('#trStatus').onclick=openTrSet;
+$('#menuBtn').onclick=()=>{const m=$('#menu');m.hidden=!m.hidden;$('#menuBtn').setAttribute('aria-expanded',String(!m.hidden))};
+$('#mTrSet').onclick=openTrSet;
+$('#mEditMode').onclick=()=>{if(!TR.on){toast('먼저 위쪽의 ‘번역’을 켜 주세요');return}setEdit(!TR.edit)};
+$('#trModeEnd').onclick=()=>setEdit(false);
+$('#frame').addEventListener('load',()=>{hideSel();hookFrame();if(TR.on)trAttach()});
+
 (async function init(){
   if(typeof JSZip==='undefined'){toast('압축 해제 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.');return}
   await store.open();
+  setTrOn(TR.on);
   try{games=await store.all()}catch(e){games=[]}
   try{sample=await makeSample()}catch(e){sample=null}
   render();
