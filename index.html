@@ -598,7 +598,7 @@ function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
   const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()};
   const out=[];
-  out.push('앱 버전: 8 (번역 기능)');
+  out.push('앱 버전: 9 (게임 코드 번역 제외)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
@@ -651,11 +651,12 @@ try{const r=JSON.parse(localStorage.getItem('gc-rules')||'{}');RULES.global=Arra
 const saveTR=()=>{try{localStorage.setItem('gc-tr',JSON.stringify({on:TR.on,engine:TR.engine,key:TR.key,working:TR.working}))}catch(e){}};
 const saveRules=()=>{try{localStorage.setItem('gc-rules',JSON.stringify(RULES))}catch(e){toast('단어장을 저장하지 못했어요')}};
 
-const TSKIP=/^(script|style|textarea|noscript|code|pre|input|select|option|svg|math|title|template)$/i;
+/* 게임 원본(장면 코드)이 들어 있는 숨은 영역은 절대 번역하지 않는다 (Twine/SugarCube: tw-storydata, #store-area) */
+const TSKIP=/^(script|style|textarea|noscript|code|pre|input|select|option|svg|math|title|template|tw-storydata|tw-passagedata|xmp|iframe|object)$/i;
+function skipEl(p){return TSKIP.test(p.tagName)||p.isContentEditable||p.hidden||p.id==='store-area'||p.id==='storeArea'||p.hasAttribute('tiddler')||p.getAttribute('translate')==='no'||(p.classList&&p.classList.contains('notranslate'))}
 function eligible(n){
   if(!n||n.nodeType!==3)return false;const v=n.nodeValue;if(!v||!/[A-Za-z]{2}/.test(v))return false;
-  for(let p=n.parentNode;p&&p.nodeType===1;p=p.parentNode){
-    if(TSKIP.test(p.tagName)||p.isContentEditable||p.getAttribute('translate')==='no'||(p.classList&&p.classList.contains('notranslate')))return false}
+  for(let p=n.parentNode;p&&p.nodeType===1;p=p.parentNode)if(skipEl(p))return false;
   return true;
 }
 const splitWS=s=>{const m=/^(\s*)([\s\S]*?)(\s*)$/.exec(s||'');return [m[1],m[2],m[3]]};
@@ -663,7 +664,10 @@ function enqueue(n){const cur=n.nodeValue;if(TR.shown.get(n)===cur)return;TR.ori
 function collect(root){const out=[];if(!root)return out;
   if(root.nodeType===3){if(eligible(root))out.push(root);return out}
   if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11)return out;
-  const d=root.ownerDocument||root,w=d.createTreeWalker(root,4);let n;while((n=w.nextNode()))if(eligible(n))out.push(n);return out}
+  if(root.nodeType===1&&skipEl(root))return out;
+  const d=root.ownerDocument||root;
+  const w=d.createTreeWalker(root,1|4,{acceptNode:x=>x.nodeType===1?(skipEl(x)?2:3):1});
+  let n;while((n=w.nextNode()))if(eligible(n))out.push(n);return out}
 function display(src,ko){
   if(Object.prototype.hasOwnProperty.call(RULES.full,src))return RULES.full[src];
   let t=ko;const loc=RULES.local[src];if(loc)for(const r of loc)if(r.from)t=t.split(r.from).join(r.to);
@@ -755,8 +759,9 @@ function trAttach(){
   trDetach();const d=frameDoc();if(!d)return;
   TR.obs=new MutationObserver(list=>{if(!TR.on)return;
     for(const r of list){if(r.type==='characterData'){const n=r.target;if(TR.shown.get(n)!==n.nodeValue&&eligible(n))enqueue(n)}
+      else if(r.type==='attributes'){if(!r.target.hidden)collect(r.target).forEach(enqueue)}
       else r.addedNodes.forEach(a=>collect(a).forEach(enqueue))}});
-  TR.obs.observe(d.documentElement,{childList:true,subtree:true,characterData:true});
+  TR.obs.observe(d.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden']});
   if(d.body)collect(d.body).forEach(enqueue);
   applySelStyle(d);
 }
@@ -854,6 +859,7 @@ $('#frame').addEventListener('load',()=>{hideSel();hookFrame();if(TR.on)trAttach
 (async function init(){
   if(typeof JSZip==='undefined'){toast('압축 해제 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.');return}
   await store.open();
+  try{if(localStorage.getItem('gc-tc-v')!=='2'){tcClear();localStorage.setItem('gc-tc-v','2')}}catch(e){}
   setTrOn(TR.on);
   try{games=await store.all()}catch(e){games=[]}
   try{sample=await makeSample()}catch(e){sample=null}
