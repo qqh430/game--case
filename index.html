@@ -203,7 +203,7 @@ function resolveRel(dir,u){
 const entry=(dir,u)=>vfsGet(resolveRel(dir,u));
 function dataUrlOf(e){if(e.dataUrl)return Promise.resolve(e.dataUrl);return new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>{e.dataUrl=fr.result;ok(fr.result)};fr.onerror=no;fr.readAsDataURL(e.blob)})}
 async function cssUrl(dir,u){const t=entry(dir,u);if(!t)return null;try{await ensure(t)}catch(e){return null}
-  if(t.blob.size<=1048576&&!/^(text\/css)$/.test(t.type)){try{return (await dataUrlOf(t))}catch(e){}}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
+  if((t.blob.size<=1048576||window.__gcMethod===2)&&!/^(text\/css)$/.test(t.type)){try{return (await dataUrlOf(t))}catch(e){}}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
 async function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;try{await ensure(t)}catch(e){return null}const h=String(u).indexOf('#');return t.url+(h>=0?String(u).slice(h):'')}
 
 async function zipToVFS(blob){
@@ -288,7 +288,7 @@ function gcShim(){
   /* 이미지: 프레임 blob → 부모 blob → data 주소 순으로 시험해서, 실제로 열리는 방식으로 넘긴다 (Safari 대응) */
   var IP=window.HTMLImageElement&&HTMLImageElement.prototype,RA=Element.prototype.removeAttribute;
   var sd=IP&&Object.getOwnPropertyDescriptor(IP,'src'),cd=IP&&Object.getOwnPropertyDescriptor(IP,'crossOrigin');
-  var METHOD=null,PC=new Map(),MNAME=['프레임 blob','부모 blob','data'];
+  var METHOD=typeof P.__gcMethod==='number'?P.__gcMethod:null,PC=new Map(),MNAME=['프레임 blob','부모 blob','data'];
   function mk(m,e){
     if(m===0){var k='i:'+e.path;if(!PC.has(k))PC.set(k,URL.createObjectURL(e.blob));return Promise.resolve(PC.get(k))}
     if(m===1)return Promise.resolve(e.url);
@@ -304,7 +304,7 @@ function gcShim(){
         var h=Array.prototype.map.call(new Uint8Array(b),function(x){return ('0'+x.toString(16)).slice(-2)}).join('');
         no('모든 방식 실패, 크기 '+e.blob.size+'B, 앞부분 '+h)},function(){no('모든 방식 실패')});return}
       var m=order[i++];
-      mk(m,e).then(function(u){return probe(u,cors)}).then(function(u){if(METHOD!==m){METHOD=m;L('meth',MNAME[m])}PC.set(key,u);ok(u)},
+      mk(m,e).then(function(u){return probe(u,cors)}).then(function(u){if(METHOD!==m){METHOD=m;P.__gcSetMethod&&P.__gcSetMethod(m)}if(!P.__gcMethodLogged){P.__gcMethodLogged=1;L('meth',MNAME[m])}PC.set(key,u);ok(u)},
         function(){L('mfail',MNAME[m]+(cors!=null?' (crossOrigin)':''));next()});
     })()});
   }
@@ -506,13 +506,15 @@ async function playGame(g){
   busy(false);
 }
 let LOG=null;
-function resetLog(){LOG={hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()}}
+window.__gcMethod=(()=>{try{const v=localStorage.getItem('gc-img-method');return v==null?null:+v}catch(e){return null}})();
+window.__gcSetMethod=m=>{window.__gcMethod=m;try{localStorage.setItem('gc-img-method',String(m))}catch(e){}};
+function resetLog(){window.__gcMethodLogged=0;LOG={hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()}}
 window.__gcLog=(k,v)=>{if(!LOG)return;if(k==='hit')LOG.hit++;else if(k==='set')LOG.set++;else if(k==='meth')LOG.meth=v;else{const m=LOG[k];if(m&&(m.size<300||m.has(v)))m.set(v,(m.get(v)||0)+1)}};
 function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
   const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()};
   const out=[];
-  out.push('앱 버전: 6 (이미지 방식 자동 선택)');
+  out.push('앱 버전: 7 (이미지 방식 기억)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
