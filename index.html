@@ -169,7 +169,15 @@ const COLORS=['#D9472F','#2F6FD9','#1F9E74','#E0A11B','#7A4FD1','#C2387F','#3A8E
 /* ---------- virtual file system ---------- */
 let VFS=null;
 function normPath(p){const o=[];for(const s of p.split('/')){if(!s||s==='.')continue;if(s==='..')o.pop();else o.push(s)}return o.join('/')}
-function vfsGet(p){if(!VFS||p==null)return null;return VFS.map.get(p)||VFS.lower.get(String(p).toLowerCase())||null}
+const AMBIG={};
+function vfsGet(p){
+  if(!VFS||p==null)return null;p=String(p).normalize('NFC');
+  const hit=VFS.map.get(p)||VFS.lower.get(p.toLowerCase());if(hit)return hit;
+  /* 정확한 경로에 없으면, 앞 폴더 이름이 달라도 끝부분 경로가 같은 파일을 찾는다 (예: img/a/b.png → imgFile/a/b.png) */
+  const segs=p.toLowerCase().split('/');
+  for(let k=0;k<segs.length-1;k++){const e=VFS.suffix.get(segs.slice(k).join('/'));if(e&&e!==AMBIG)return e}
+  return null;
+}
 window.__gcGet=vfsGet;
 function isExternal(u){return /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(u)}
 function resolveRel(dir,u){
@@ -183,15 +191,17 @@ function rewriteUrl(dir,u){const t=entry(dir,u);if(!t)return null;const h=String
 
 async function zipToVFS(blob){
   const zip=await JSZip.loadAsync(blob);
-  const map=new Map(),lower=new Map(),jobs=[];
+  const map=new Map(),lower=new Map(),suffix=new Map(),jobs=[];
   zip.forEach((path,f)=>{
     if(f.dir||/(^|\/)__MACOSX\//.test(path)||/(^|\/)\.DS_Store$/.test(path)||/(^|\/)\._/.test(path))return;
-    jobs.push(f.async('blob').then(async b=>{
+    jobs.push(f.async('blob').then(async b=>{path=path.normalize('NFC');
       const type=MIME[ext(path)]||'application/octet-stream';
       const bb=new Blob([b],{type});
       const e={path,blob:bb,type,url:URL.createObjectURL(bb)};
       if(/^(js|mjs)$/.test(ext(path)))e.text=await bb.text();
       map.set(path,e);lower.set(path.toLowerCase(),e);
+      const segs=path.toLowerCase().split('/');
+      for(let i=0;i<segs.length-1;i++){const t=segs.slice(i).join('/');const prev=suffix.get(t);suffix.set(t,prev&&prev!==e?AMBIG:e)}
     }));
   });
   await Promise.all(jobs);
@@ -199,7 +209,7 @@ async function zipToVFS(blob){
     const da=a.split('/').length,db=b.split('/').length;if(da!==db)return da-db;
     const ia=/(^|\/)index\.html?$/i.test(a)?0:1,ib=/(^|\/)index\.html?$/i.test(b)?0:1;return ia-ib||a.localeCompare(b);
   });
-  return {map,lower,entry:htmls[0]||null,root:htmls[0]?dirOf(htmls[0]):''};
+  return {map,lower,suffix,entry:htmls[0]||null,root:htmls[0]?dirOf(htmls[0]):''};
 }
 function freeVFS(v){if(!v)return;for(const e of v.map.values())URL.revokeObjectURL(e.url)}
 
