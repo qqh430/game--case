@@ -11,6 +11,7 @@ zip으로 묶은 HTML 게임을 아이폰 Safari에서 이미지·CSS·스크립
 | `sw.js` | 오프라인 실행용 캐시 |
 | `manifest.webmanifest` | 홈 화면 앱 설정 |
 | `icon-*.png`, `favicon.png` | 아이콘 |
+| `deepl-worker.js` | DeepL 연결 서버 코드 (Cloudflare Worker에 붙여넣기용) |
 | `.nojekyll` | GitHub Pages가 파일을 그대로 올리도록 하는 표시 파일 |
 
 ## 아이폰만으로 GitHub Pages에 올리기
@@ -39,7 +40,7 @@ zip으로 묶은 HTML 게임을 아이폰 Safari에서 이미지·CSS·스크립
 
 게임 화면 위쪽의 **번역**을 누르면 영어 글자를 한국어로 바꿔요. 다시 누르면 원문으로 돌아가요.
 
-- 번역 엔진은 **⋯ → 번역 설정 · 단어장**에서 고릅니다. 기본은 Google 번역이고, 연결이 안 되면 Microsoft 번역으로 넘어가요. Google Cloud API 키가 있으면 직접 넣어 쓸 수도 있어요.
+- 번역 엔진은 **⋯ → 번역 설정 · 단어장**에서 고릅니다. 기본은 DeepL(연결 주소를 넣었을 때)이고, 안 되면 Google, Microsoft 순서로 넘어가요. Google Cloud API 키가 있으면 직접 넣어 쓸 수도 있어요.
 - 번역하려면 화면의 게임 글자가 번역 서버로 보내져요. 한 번 번역한 문장은 기기에 저장해서 다시 보내지 않아요.
 
 ### 뜻 바꾸기
@@ -48,6 +49,23 @@ zip으로 묶은 HTML 게임을 아이폰 Safari에서 이미지·CSS·스크립
 - 또는 **⋯ → 뜻 바꾸기 모드**를 켜고 문장을 누르세요. 이 모드에서는 눌러도 게임이 진행되지 않아요.
 - 바꿀 말과 원하는 뜻을 넣고 **모든 번역에서** 또는 **이 문장에서만**을 고릅니다. **문장 전체를 위 번역으로 고정**으로 문장 하나를 통째로 고칠 수도 있어요.
 - 저장한 내용은 **번역 설정 · 단어장**에서 보고 지울 수 있어요.
+
+## DeepL 번역
+
+DeepL은 보안 정책상 웹페이지에서 바로 부를 수 없어서(CORS 차단), 무료 Cloudflare Worker로 작은 연결 서버를 하나 만들어야 해요. 아이폰 Safari만으로 할 수 있어요.
+
+1. [dash.cloudflare.com](https://dash.cloudflare.com)에 무료로 가입하고 로그인합니다.
+2. 메뉴에서 **Workers & Pages**(또는 **Compute**) → **Create** → **Hello World**로 Worker를 만들고 이름을 정한 뒤(예: `game-case-deepl`) **Deploy**를 누릅니다.
+3. **Edit code**를 눌러 기존 코드를 모두 지우고, [deepl-worker.js 원문](https://raw.githubusercontent.com/qqh430/game--case/main/deepl-worker.js)을 전체 복사해 붙여넣은 뒤 **Deploy**를 누릅니다.
+4. Worker의 **Settings → Variables and Secrets → Add**에서 종류를 **Secret**으로, 이름을 `DEEPL_KEY`로, 값에 DeepL API 키를 넣고 저장(**Deploy**)합니다.
+   - 키는 이 저장소에 적지 마세요. 저장소가 공개라서 누구나 볼 수 있어요.
+5. Worker 주소(`https://game-case-deepl.내계정.workers.dev`)를 복사합니다.
+6. 게임 케이스의 게임 화면 → **⋯ → 번역 설정 · 단어장** → **DeepL 연결 주소**에 붙여넣고 **연결 확인 · 사용량 보기**를 누릅니다. "연결됐어요"가 나오면 끝이에요.
+
+- 번역 엔진이 **자동**이면 DeepL을 먼저 쓰고, DeepL이 안 되면(사용량 초과 등) Google·Microsoft로 넘어가요. 화면 왼쪽 아래에 이유가 표시돼요.
+- **DeepL 말투**에서 반말 쪽 / 존댓말 쪽을 고를 수 있어요.
+- DeepL 무료 플랜은 한 달 50만 자까지예요. 한 번 번역한 문장은 기기에 저장돼서 다시 쓰지 않아요.
+- 게임 케이스를 `qqh430.github.io`가 아닌 다른 주소에 올렸다면 `deepl-worker.js` 맨 위 `ALLOWED_ORIGINS`에 그 주소를 추가하세요.
 
 ## 알아둘 점
 
