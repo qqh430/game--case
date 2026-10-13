@@ -77,6 +77,22 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
 .del.armed{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .del:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+.backup{display:flex;flex-direction:column;gap:12px;border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--surface)}
+.backup .shelf-head{padding-bottom:6px}
+.bk-desc{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
+.bk-what{margin:0;padding-left:1.2em;font-size:.88rem;line-height:1.6;font-variant-numeric:tabular-nums}
+.bk-check{display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:600;cursor:pointer}
+.bk-check input{width:20px;height:20px;accent-color:var(--accent);flex:none;margin:0}
+.bk-check span{color:var(--muted);font-weight:500}
+.bk-acts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bk-btn{font:inherit;font-weight:800;font-size:.92rem;text-align:center;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:11px 12px;cursor:pointer;position:relative}
+.bk-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bk-btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.bk-btn:focus-within,.bk-btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.bk-ready{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.bk-ready span{flex:1;min-width:10rem;overflow-wrap:anywhere}
+.bk-ready .bk-btn{flex:none}
+@media (max-width:420px){.bk-acts{grid-template-columns:1fr}}
 .notes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .notes section{border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
 .notes h3{margin:0 0 6px;font-size:.95rem;font-weight:800}
@@ -178,6 +194,19 @@ header p{margin:8px 0 0;color:var(--muted);max-width:34em}
     <div class="shelf-head"><h2>보관함</h2><span class="count" id="count"></span></div>
     <div class="shelf" id="shelf"></div>
   </div>
+
+  <section class="backup" id="backup">
+    <div class="shelf-head"><h2>백업 · 옮기기</h2></div>
+    <p class="bk-desc">게임 진행 기록은 이 앱 주소에 저장돼요. Safari와 홈 화면 앱은 저장 공간이 따로고, 방문 기록을 지우면 사라질 수 있어요. 아래 내용을 파일 하나로 묶어 두면 다른 기기나 다른 쪽으로 그대로 옮길 수 있어요.</p>
+    <ul class="bk-what" id="bkWhat"><li>확인하는 중…</li></ul>
+    <label class="bk-check" for="bkGames"><input id="bkGames" type="checkbox">넣은 게임 파일도 포함 <span id="bkGamesSize"></span></label>
+    <div class="bk-acts">
+      <button class="bk-btn primary" id="bkMake" type="button">백업 파일 만들기</button>
+      <label class="bk-btn" for="bkIn">백업 불러오기<input id="bkIn" type="file"></label>
+    </div>
+    <div class="bk-ready" id="bkReady" hidden><span id="bkReadyText"></span><button class="bk-btn primary" id="bkSave" type="button">파일로 저장</button></div>
+    <div class="bk-ready" id="bkAsk" hidden><span id="bkAskText"></span><button class="bk-btn primary" id="bkGo" type="button">불러오기</button><button class="bk-btn" id="bkNo" type="button">취소</button></div>
+  </section>
 
   <div class="notes">
     <section>
@@ -580,13 +609,14 @@ function render(){
 
 async function addGame(blob,fileName){
   busy(true);let v;
+  try{const b=await readBackup(blob);if(b){busy(false);askRestore(b);return}}catch(e){}
   try{v=await zipToVFS(blob)}catch(e){busy(false);toast('zip 파일을 열 수 없어요. 압축이 깨지지 않았는지 확인해 주세요.');return}
   if(!v.entry){freeVFS(v);busy(false);toast('zip 안에 .html 파일이 없어요. 게임 폴더를 통째로 압축해 주세요.');return}
   let name=fileName.replace(/\.zip$/i,'');
   try{const d=new DOMParser().parseFromString(await textOf(v.map.get(v.entry)),'text/html');const t=(d.title||'').trim();if(t)name=t}catch(e){}
   freeVFS(v);
   const g={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:name.slice(0,60),file:fileName,size:blob.size,added:Date.now(),blob};
-  const saved=await store.put(g);games.push(g);freshId=g.id;busy(false);render();
+  const saved=await store.put(g);games.push(g);freshId=g.id;busy(false);render();renderBackup().catch(()=>{});
   toast(saved?name+' 추가함':name+' 추가함. 이 브라우저에 저장할 수 없어 창을 닫으면 사라져요.');
 }
 
@@ -609,7 +639,7 @@ function diagText(){
   if(!VFS)return '게임이 열려 있지 않아요.';
   const paths=[...VFS.map.keys()];const L=LOG||{hit:0,set:0,meth:'',miss:new Map(),err:new Map(),mfail:new Map()};
   const out=[];
-  out.push('앱 버전: 10 (DeepL 번역)');
+  out.push('앱 버전: 11 (백업 · 옮기기)');
   out.push('게임: '+(current?current.name:'?'));
   out.push('zip 안 파일 수: '+paths.length+'개');
   out.push('처음 연 HTML: '+VFS.entry);
@@ -632,7 +662,7 @@ function diagText(){
 }
 function openDiag(){$('#diagText').value=diagText();$('#diag').hidden=false}
 window.__gcOpen=async p=>{try{$('#frame').srcdoc=await buildDoc(p)}catch(e){toast('페이지를 열지 못했어요.')}};
-function closePlayer(){['#trEdit','#trSet','#menu','#diag'].forEach(x=>$(x).hidden=true);hideSel();setEdit(false);trStatus('');$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
+function closePlayer(){setTimeout(()=>renderBackup().catch(()=>{}),400);['#trEdit','#trSet','#menu','#diag'].forEach(x=>$(x).hidden=true);hideSel();setEdit(false);trStatus('');$('#frame').srcdoc='';$('#player').hidden=true;document.body.classList.remove('playing');setTimeout(()=>{freeVFS(VFS);VFS=null},300);current=null}
 $('#back').onclick=closePlayer;
 $('#reload').onclick=async()=>{if(VFS&&VFS.entry){resetLog();$('#frame').srcdoc=await buildDoc(VFS.entry)}};
 $('#diagBtn').onclick=openDiag;
@@ -920,6 +950,188 @@ $('#mEditMode').onclick=()=>{if(!TR.on){toast('먼저 위쪽의 ‘번역’을 
 $('#trModeEnd').onclick=()=>setEdit(false);
 $('#frame').addEventListener('load',()=>{hideSel();hookFrame();if(TR.on)trAttach()});
 
+/* ---------- 백업 · 옮기기 ---------- */
+/* 이 주소(origin)에 저장된 것 전부: 게임이 직접 남긴 세이브(localStorage·IndexedDB), 번역 설정·단어장, 저장된 번역, 넣은 게임 */
+const BK_FILE='gamecase-backup.json';
+const BK_SKIP_LS=['gc-img-method']; /* 기기마다 다른 값이라 옮기지 않음 */
+const idbReq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function listDbs(){try{if(indexedDB.databases)return (await indexedDB.databases()).filter(d=>d&&d.name)}catch(e){}return store.db?[{name:'game-case',version:store.db.version}]:[]}
+function idbOpen(name,version,upgrade){return new Promise((res,rej)=>{
+  const r=version?indexedDB.open(name,version):indexedDB.open(name);
+  if(upgrade)r.onupgradeneeded=()=>upgrade(r.result);
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+  r.onblocked=()=>rej(new Error('게임이 열려 있어서 저장소를 바꿀 수 없어요. 게임을 닫고 다시 해 주세요'))})}
+const fmtSize=n=>n<1048576?Math.max(1,Math.round(n/1024))+' KB':(n/1048576).toFixed(n<10485760?1:0)+' MB';
+
+function encVal(v,blobs){
+  if(v===undefined)return {__gc:'u'};
+  if(typeof v==='number'&&!Number.isFinite(v))return {__gc:'n',v:String(v)};
+  if(typeof v==='bigint')return {__gc:'bi',v:String(v)};
+  if(v===null||typeof v!=='object')return v;
+  if(v instanceof Date)return {__gc:'d',v:v.getTime()};
+  if(v instanceof Blob){blobs.push(v);return {__gc:'b',i:blobs.length-1,t:v.type,f:v instanceof File?v.name:null}}
+  if(v instanceof ArrayBuffer){blobs.push(new Blob([v]));return {__gc:'ab',i:blobs.length-1}}
+  if(ArrayBuffer.isView(v)){blobs.push(new Blob([v.buffer.slice(v.byteOffset,v.byteOffset+v.byteLength)]));return {__gc:'ta',i:blobs.length-1,c:v.constructor.name}}
+  if(Array.isArray(v))return v.map(x=>encVal(x,blobs));
+  if(v instanceof Map)return {__gc:'m',v:[...v].map(([a,b])=>[encVal(a,blobs),encVal(b,blobs)])};
+  if(v instanceof Set)return {__gc:'s',v:[...v].map(x=>encVal(x,blobs))};
+  if(v instanceof RegExp)return {__gc:'r',s:v.source,f:v.flags};
+  const o={};for(const k of Object.keys(v))o[k]=encVal(v[k],blobs);
+  return Object.prototype.hasOwnProperty.call(v,'__gc')?{__gc:'o',v:o}:o;
+}
+async function decVal(v,blob){
+  if(v===null||typeof v!=='object')return v;
+  if(Array.isArray(v)){const a=[];for(const x of v)a.push(await decVal(x,blob));return a}
+  switch(v.__gc){
+    case 'u':return undefined;
+    case 'n':return Number(v.v);
+    case 'bi':return BigInt(v.v);
+    case 'd':return new Date(v.v);
+    case 'b':{const b=await blob(v.i);const t=new Blob([b],{type:v.t||''});return v.f?new File([t],v.f,{type:v.t||''}):t}
+    case 'ab':return await (await blob(v.i)).arrayBuffer();
+    case 'ta':{const ab=await (await blob(v.i)).arrayBuffer();const C=globalThis[v.c];return typeof C==='function'?new C(ab):new Uint8Array(ab)}
+    case 'm':{const m=new Map();for(const [a,b] of v.v)m.set(await decVal(a,blob),await decVal(b,blob));return m}
+    case 's':{const s=new Set();for(const x of v.v)s.add(await decVal(x,blob));return s}
+    case 'r':return new RegExp(v.s,v.f);
+    case 'o':{const o=await decVal(v.v,blob);o.__gc=undefined;delete o.__gc;return o}
+  }
+  const o={};for(const k of Object.keys(v))o[k]=await decVal(v[k],blob);return o;
+}
+async function dumpDb(name,withGames,blobs){
+  const own=name==='game-case'&&store.db;
+  const db=own?store.db:await idbOpen(name);
+  const out={name,version:db.version,stores:[]};
+  try{
+    for(const sn of [...db.objectStoreNames]){
+      if(name==='game-case'&&sn==='games'&&!withGames)continue;
+      const os=db.transaction(sn,'readonly').objectStore(sn);
+      const meta={name:sn,keyPath:os.keyPath,autoIncrement:os.autoIncrement,records:[],
+        indexes:[...os.indexNames].map(i=>{const x=os.index(i);return {name:x.name,keyPath:x.keyPath,unique:x.unique,multiEntry:x.multiEntry}})};
+      const [keys,vals]=await Promise.all([idbReq(os.getAllKeys()),idbReq(os.getAll())]);
+      keys.forEach((k,i)=>meta.records.push({k:encVal(k,blobs),v:encVal(vals[i],blobs)}));
+      out.stores.push(meta);
+    }
+  }finally{if(!own)db.close()}
+  return out;
+}
+async function restoreDb(d,blob,report){
+  let db,own=false;
+  if(d.name==='game-case'){if(!store.db)return;db=store.db;own=true}
+  else{
+    const ex=(await listDbs()).find(x=>x.name===d.name);
+    const target=d.version||1;
+    const upgrade=x=>{for(const s of d.stores)if(!x.objectStoreNames.contains(s.name)){
+      const os=x.createObjectStore(s.name,s.keyPath==null?{autoIncrement:!!s.autoIncrement}:{keyPath:s.keyPath,autoIncrement:!!s.autoIncrement});
+      for(const ix of s.indexes||[])os.createIndex(ix.name,ix.keyPath,{unique:!!ix.unique,multiEntry:!!ix.multiEntry})}};
+    db=(!ex||ex.version<target)?await idbOpen(d.name,target,upgrade):await idbOpen(d.name);
+  }
+  try{
+    for(const s of d.stores){
+      if(!db.objectStoreNames.contains(s.name)){report.skipped.push(d.name+'/'+s.name);continue}
+      const recs=[];for(const r of s.records)recs.push([await decVal(r.k,blob),await decVal(r.v,blob)]);
+      await new Promise((res,rej)=>{const tx=db.transaction(s.name,'readwrite'),os=tx.objectStore(s.name);
+        for(const [k,v] of recs){if(os.keyPath!=null)os.put(v);else os.put(v,k)}
+        tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('저장 취소됨'))});
+      report.records+=recs.length;
+    }
+  }finally{if(!own)db.close()}
+}
+
+async function bkSummary(){
+  const lsKeys=[];try{for(let i=0;i<localStorage.length;i++)lsKeys.push(localStorage.key(i))}catch(e){}
+  let gameRecs=lsKeys.filter(k=>!/^gc-/.test(k)).length,tc=0;
+  for(const d of await listDbs()){
+    try{
+      const own=d.name==='game-case'&&store.db,db=own?store.db:await idbOpen(d.name);
+      for(const sn of [...db.objectStoreNames]){
+        if(d.name==='game-case'&&sn==='games')continue;
+        const n=await idbReq(db.transaction(sn,'readonly').objectStore(sn).count());
+        if(d.name==='game-case'&&sn==='tcache')tc+=n;else gameRecs+=n;
+      }
+      if(!own)db.close();
+    }catch(e){}
+  }
+  const rules=RULES.global.length+Object.values(RULES.local).reduce((a,l)=>a+l.length,0)+Object.keys(RULES.full).length;
+  const gsize=games.reduce((a,g)=>a+(g.size||0),0);
+  return {gameRecs,tc,rules,games:games.length,gsize};
+}
+async function renderBackup(){
+  const s=await bkSummary(),ul=$('#bkWhat');
+  ul.replaceChildren(
+    el('li',null,`게임 진행 기록(세이브·게임 설정): ${s.gameRecs.toLocaleString('ko-KR')}건`),
+    el('li',null,`번역 설정 · 단어장: 뜻 바꾸기 ${s.rules}개`),
+    el('li',null,`저장된 번역: ${s.tc.toLocaleString('ko-KR')}문장`),
+    el('li',null,s.games?`넣은 게임: ${s.games}개 · ${fmtSize(s.gsize)} (아래에서 고르면 포함)`:'넣은 게임: 없음'));
+  $('#bkGamesSize').textContent=s.games?`(${fmtSize(s.gsize)})`:'';
+}
+
+let bkReadyFile=null;
+async function makeBackup(){
+  if(!$('#player').hidden)closePlayer();
+  busy(true);
+  try{
+    const withGames=$('#bkGames').checked,blobs=[];
+    const out={format:'game-case-backup',version:1,created:new Date().toISOString(),origin:location.origin,withGames,localStorage:{},idb:[]};
+    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!BK_SKIP_LS.includes(k))out.localStorage[k]=localStorage.getItem(k)}}catch(e){}
+    for(const d of await listDbs()){try{out.idb.push(await dumpDb(d.name,withGames,blobs))}catch(e){}}
+    const z=new JSZip();
+    z.file(BK_FILE,JSON.stringify(out),{compression:'DEFLATE'});
+    blobs.forEach((b,i)=>z.file('blobs/'+i,b,{compression:'STORE'}));
+    const blob=await z.generateAsync({type:'blob',mimeType:'application/zip'});
+    const d=new Date(),p=n=>String(n).padStart(2,'0');
+    const name=`게임케이스-백업-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.zip`;
+    bkReadyFile=new File([blob],name,{type:'application/zip'});
+    $('#bkReadyText').textContent=`${name} · ${fmtSize(blob.size)} 준비됐어요`;
+    $('#bkReady').hidden=false;
+    window.__gcLastBackup=bkReadyFile;
+  }catch(e){toast('백업을 만들지 못했어요 · '+(e&&e.message||e))}
+  busy(false);
+}
+async function saveBackup(){
+  const f=bkReadyFile;if(!f)return;
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:f.name});toast('공유 화면에서 ‘파일에 저장’을 고르면 돼요');return}}
+  catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.append(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},60000);
+  toast('백업 파일을 내려받았어요. 파일 앱의 다운로드 폴더에 있어요');
+}
+
+let bkPending=null;
+async function readBackup(blob){
+  const z=await JSZip.loadAsync(blob);const f=z.file(BK_FILE);if(!f)return null;
+  const data=JSON.parse(await f.async('string'));
+  if(!data||data.format!=='game-case-backup')throw new Error('게임 케이스 백업 파일이 아니에요');
+  return {z,data};
+}
+function askRestore(b){
+  bkPending=b;const d=b.data;
+  const nLs=Object.keys(d.localStorage||{}).length,nRec=(d.idb||[]).reduce((a,x)=>a+x.stores.reduce((c,s)=>c+s.records.length,0),0);
+  const when=new Date(d.created);
+  $('#bkAskText').textContent=`${isNaN(when)?'':when.toLocaleString('ko-KR')} 백업 · 항목 ${(nLs+nRec).toLocaleString('ko-KR')}개${d.withGames?' · 게임 파일 포함':''}. 불러오면 같은 세이브와 설정은 백업 내용으로 바뀌어요.`;
+  $('#bkAsk').hidden=false;$('#bkAsk').scrollIntoView({block:'center'});
+}
+async function doRestore(){
+  const b=bkPending;if(!b)return;$('#bkAsk').hidden=true;bkPending=null;
+  if(!$('#player').hidden)closePlayer();
+  busy(true);
+  const report={records:0,ls:0,skipped:[],errors:[]};
+  const cache=new Map();const blob=i=>{if(!cache.has(i)){const f=b.z.file('blobs/'+i);cache.set(i,f?f.async('blob'):Promise.resolve(new Blob([])))}return cache.get(i)};
+  for(const [k,v] of Object.entries(b.data.localStorage||{})){if(BK_SKIP_LS.includes(k))continue;try{localStorage.setItem(k,v);report.ls++}catch(e){report.errors.push(k)}}
+  for(const d of b.data.idb||[]){try{await restoreDb(d,blob,report)}catch(e){report.errors.push(d.name+': '+(e&&e.message||e))}}
+  busy(false);
+  if(report.errors.length){toast('일부를 불러오지 못했어요 · '+report.errors[0]);setTimeout(()=>location.reload(),2500);return}
+  toast(`불러왔어요 · ${(report.ls+report.records).toLocaleString('ko-KR')}개 항목. 다시 여는 중…`);
+  setTimeout(()=>location.reload(),1200);
+}
+$('#bkMake').onclick=makeBackup;
+$('#bkSave').onclick=saveBackup;
+$('#bkGames').onchange=()=>{$('#bkReady').hidden=true;bkReadyFile=null};
+$('#bkIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  busy(true);let b=null;try{b=await readBackup(f)}catch(err){busy(false);toast(String(err&&err.message||'백업 파일을 열 수 없어요'));return}
+  busy(false);if(!b){toast('게임 케이스 백업 파일이 아니에요');return}askRestore(b)};
+$('#bkGo').onclick=doRestore;
+$('#bkNo').onclick=()=>{bkPending=null;$('#bkAsk').hidden=true};
+
 (async function init(){
   if(typeof JSZip==='undefined'){toast('압축 해제 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.');return}
   await store.open();
@@ -928,6 +1140,7 @@ $('#frame').addEventListener('load',()=>{hideSel();hookFrame();if(TR.on)trAttach
   try{games=await store.all()}catch(e){games=[]}
   try{sample=await makeSample()}catch(e){sample=null}
   render();
+  renderBackup().catch(()=>{});
 })();
 })();
 </script>
